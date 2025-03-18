@@ -3,17 +3,14 @@ FROM node:18-alpine
 WORKDIR /app
 
 # Copier package.json et installer les dépendances
-COPY package.json .
+COPY package.json ./
 RUN npm install
 
 # Copier le reste des fichiers
 COPY . .
 
-# S'assurer que les dossiers existent
-RUN mkdir -p frontend/public
-
 # Exposer le port
 EXPOSE 5000
 
 # Démarrer l'application
-CMD ["npm", "start"]
+CMD ["node", "backend/server.js"]

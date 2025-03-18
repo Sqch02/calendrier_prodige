@@ -1,10 +1,8 @@
 const express = require('express');
 const path = require('path');
 const cors = require('cors');
-const dotenv = require('dotenv');
 
 // Configuration
-dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 5000;
 
@@ -22,8 +20,7 @@ let events = [
     client: 'Dupont SA',
     description: 'Installation du nouveau système de gestion',
     status: 'confirmed',
-    assignedTo: 'Jean Martin',
-    createdBy: '1'
+    assignedTo: 'Jean Martin'
   },
   {
     id: '2',
@@ -33,8 +30,7 @@ let events = [
     client: 'Michu SARL',
     description: 'Maintenance mensuelle des serveurs',
     status: 'pending',
-    assignedTo: 'Sophie Durand',
-    createdBy: '1'
+    assignedTo: 'Sophie Durand'
   },
   {
     id: '3',
@@ -44,23 +40,11 @@ let events = [
     client: 'Entreprise ABC',
     description: 'Formation sur le nouvel outil de gestion',
     status: 'in-progress',
-    assignedTo: 'Pierre Lefebvre',
-    createdBy: '1'
+    assignedTo: 'Pierre Lefebvre'
   }
 ];
 
-let users = [
-  {
-    id: '1',
-    name: 'Admin',
-    email: 'admin@prodige.fr',
-    role: 'admin'
-  }
-];
-
-// Routes API
-
-// Événements
+// Routes API pour les événements
 app.get('/api/events', (req, res) => {
   const { year, month } = req.query;
   
@@ -91,8 +75,7 @@ app.get('/api/events/:id', (req, res) => {
 app.post('/api/events', (req, res) => {
   const newEvent = {
     ...req.body,
-    id: Date.now().toString(),
-    createdBy: '1' // Utilisateur par défaut
+    id: Date.now().toString()
   };
   
   events.push(newEvent);
@@ -121,25 +104,15 @@ app.delete('/api/events/:id', (req, res) => {
   }
 });
 
-// Utilisateurs
-app.get('/api/users', (req, res) => {
-  res.json(users);
+// Servir les fichiers statiques
+app.use(express.static(path.join(__dirname, '../frontend/public')));
+
+// Toutes les autres routes renvoient vers l'index.html
+app.get('*', (req, res) => {
+  res.sendFile(path.join(__dirname, '../frontend/public', 'index.html'));
 });
-
-// Servir les fichiers statiques en production
-if (process.env.NODE_ENV === 'production') {
-  // Servir les fichiers statiques du frontend
-  app.use(express.static(path.join(__dirname, '../frontend/public')));
-
-  // Toutes les autres routes renvoient vers l'index.html
-  app.get('*', (req, res) => {
-    res.sendFile(path.join(__dirname, '../frontend/public', 'index.html'));
-  });
-}
 
 // Démarrer le serveur
 app.listen(PORT, () => {
-  console.log(`Serveur démarré sur le port ${PORT}`);
+  console.log(`Serveur démarré sur le port ${PORT} en mode ${process.env.NODE_ENV || 'development'}`);
 });
-
-module.exports = app;
