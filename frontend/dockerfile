@@ -1,0 +1,21 @@
+FROM node:18-alpine
+
+WORKDIR /app
+
+COPY package*.json ./
+
+RUN npm install
+
+COPY . .
+
+# Construire l'application pour la production
+RUN npm run build
+
+# Installer un serveur léger pour servir l'application construite
+RUN npm install -g serve
+
+# Exposer le port
+EXPOSE 3000
+
+# Démarrer le serveur
+CMD ["serve", "-s", "build", "-l", "3000"]
