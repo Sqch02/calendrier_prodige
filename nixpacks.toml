@@ -1,11 +1,23 @@
 [phases.setup]
-nixPkgs = ["nodejs", "nodejs.pkgs.pnpm", "yarn"]
+nixPkgs = ["nodejs-18_x", "nodejs-18_x.pkgs.pnpm", "yarn"]
 
 [phases.install]
-cmds = ["npm config set legacy-peer-deps true", "npm install", "cd frontend && npm install"]
+cmds = [
+  "npm config set legacy-peer-deps true", 
+  "npm install", 
+  "cd frontend && npm install --legacy-peer-deps"
+]
 
 [phases.build]
-cmds = ["cd frontend && npm run build"]
+cmds = [
+  "node check-files.js",
+  "node fix-build.js",
+  "cd frontend && NODE_OPTIONS=--openssl-legacy-provider npm run build"
+]
 
 [start]
 cmd = "npm start"
+
+[variables]
+NODE_VERSION = "18.19.0"
+NPM_CONFIG_LEGACY_PEER_DEPS = "true"

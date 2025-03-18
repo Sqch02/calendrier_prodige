@@ -9,10 +9,10 @@
     "server": "nodemon backend/server.js",
     "client": "npm start --prefix frontend",
     "dev": "concurrently \"npm run server\" \"npm run client\"",
-    "install-all": "npm install && cd frontend && npm install",
-    "prebuild": "node check-files.js",
-    "build": "cd frontend && npm run build",
-    "heroku-postbuild": "NPM_CONFIG_PRODUCTION=false npm install --prefix frontend && npm run build --prefix frontend"
+    "install-all": "npm install && cd frontend && npm install --legacy-peer-deps",
+    "prebuild": "node check-files.js && node fix-build.js",
+    "build": "cd frontend && NODE_OPTIONS=--openssl-legacy-provider npm run build",
+    "heroku-postbuild": "NPM_CONFIG_PRODUCTION=false npm install --prefix frontend --legacy-peer-deps && NODE_OPTIONS=--openssl-legacy-provider npm run build --prefix frontend"
   },
   "keywords": [
     "calendar",
@@ -35,6 +35,6 @@
     "nodemon": "^3.0.1"
   },
   "engines": {
-    "node": ">=14.0.0"
+    "node": "18.x"
   }
 }

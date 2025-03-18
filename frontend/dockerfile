@@ -2,10 +2,13 @@ FROM node:18-alpine
 
 WORKDIR /app
 
-COPY package*.json ./
+# Copier les fichiers de configuration d'abord pour mettre en cache les couches
+COPY package*.json .npmrc ./
 
+# Installer les dépendances avec les configurations appropriées
 RUN npm install
 
+# Copier le reste des fichiers du projet
 COPY . .
 
 # Construire l'application pour la production
