@@ -3,6 +3,7 @@ const router = express.Router();
 const User = require('../models/User');
 const { protect, admin } = require('../middleware/authMiddleware');
 const jwt = require('jsonwebtoken');
+const mongoose = require('mongoose');
 
 // @desc    Inscription d'un nouvel utilisateur
 // @route   POST /api/users/register
@@ -190,6 +191,36 @@ router.delete('/:id', protect, admin, async (req, res) => {
     }
     res.status(500).json({ message: 'Erreur serveur' });
   }
+});
+
+// Route minimale pour le healthcheck
+router.get('/', (req, res) => {
+  res.json({ 
+    success: true, 
+    message: 'API utilisateurs en ligne', 
+    endpoints: [
+      { method: 'GET', path: '/api/users', description: 'Récupérer tous les utilisateurs' },
+      { method: 'GET', path: '/api/users/:id', description: 'Récupérer un utilisateur par ID' },
+      { method: 'POST', path: '/api/users', description: 'Créer un nouvel utilisateur' }
+    ]
+  });
+});
+
+// GET tous les utilisateurs (route temporaire)
+router.get('/dummy', (req, res) => {
+  // Données factices pour simuler des utilisateurs
+  const dummyUsers = [
+    { id: '1', name: 'Jean Dupont', email: 'jean@example.com', role: 'admin' },
+    { id: '2', name: 'Marie Durand', email: 'marie@example.com', role: 'user' },
+    { id: '3', name: 'Pierre Martin', email: 'pierre@example.com', role: 'user' }
+  ];
+  
+  res.json({ 
+    success: true, 
+    count: dummyUsers.length, 
+    data: dummyUsers,
+    note: "Ces données sont simulées pour les besoins du développement. La fonctionnalité complète sera implémentée ultérieurement."
+  });
 });
 
 module.exports = router;

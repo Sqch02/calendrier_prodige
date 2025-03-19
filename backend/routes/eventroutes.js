@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const Event = require('../models/Event');
+const mongoose = require('mongoose');
 const { protect, admin } = require('../middleware/authMiddleware');
 
 // @desc    Récupérer tous les événements
@@ -8,14 +9,20 @@ const { protect, admin } = require('../middleware/authMiddleware');
 // @access  Private
 router.get('/', protect, async (req, res) => {
   try {
-    const { year, month } = req.query;
-    
+    // Vérifier si MongoDB est connecté
+    if (mongoose.connection.readyState !== 1) {
+      return res.status(503).json({ 
+        success: false, 
+        message: 'Service temporairement indisponible, base de données inaccessible'
+      });
+    }
+
+    const { month, year } = req.query;
     let query = {};
     
-    if (year && month) {
-      // Filtrer par année et mois
-      const startDate = new Date(year, month - 1, 1);
-      const endDate = new Date(year, month, 0);
+    if (month && year) {
+      const startDate = new Date(parseInt(year), parseInt(month) - 1, 1);
+      const endDate = new Date(parseInt(year), parseInt(month), 0);
       
       query = {
         start: { 
@@ -26,10 +33,14 @@ router.get('/', protect, async (req, res) => {
     }
     
     const events = await Event.find(query).sort({ start: 1 });
-    res.json(events);
+    res.json({ success: true, count: events.length, data: events });
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: 'Erreur serveur' });
+    console.error('Erreur lors de la récupération des événements:', error.message);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Erreur serveur lors de la récupération des événements',
+      error: error.message
+    });
   }
 });
 
@@ -38,19 +49,39 @@ router.get('/', protect, async (req, res) => {
 // @access  Private
 router.get('/:id', protect, async (req, res) => {
   try {
+    // Vérifier si MongoDB est connecté
+    if (mongoose.connection.readyState !== 1) {
+      return res.status(503).json({ 
+        success: false, 
+        message: 'Service temporairement indisponible, base de données inaccessible'
+      });
+    }
+
+    // Vérifier si l'ID est valide
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'ID d\'événement invalide'
+      });
+    }
+
     const event = await Event.findById(req.params.id);
     
     if (!event) {
-      return res.status(404).json({ message: 'Événement non trouvé' });
+      return res.status(404).json({ 
+        success: false, 
+        message: 'Événement non trouvé'
+      });
     }
     
-    res.json(event);
+    res.json({ success: true, data: event });
   } catch (error) {
-    console.error(error);
-    if (error.kind === 'ObjectId') {
-      return res.status(404).json({ message: 'Événement non trouvé' });
-    }
-    res.status(500).json({ message: 'Erreur serveur' });
+    console.error('Erreur lors de la récupération de l\'événement:', error.message);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Erreur serveur lors de la récupération de l\'événement',
+      error: error.message 
+    });
   }
 });
 
@@ -59,6 +90,14 @@ router.get('/:id', protect, async (req, res) => {
 // @access  Private
 router.post('/', protect, async (req, res) => {
   try {
+    // Vérifier si MongoDB est connecté
+    if (mongoose.connection.readyState !== 1) {
+      return res.status(503).json({ 
+        success: false, 
+        message: 'Service temporairement indisponible, base de données inaccessible'
+      });
+    }
+
     const { title, start, end, client, description, status, assignedTo } = req.body;
     
     const event = new Event({
@@ -72,15 +111,27 @@ router.post('/', protect, async (req, res) => {
     });
     
     const savedEvent = await event.save();
-    res.status(201).json(savedEvent);
+    res.status(201).json({ 
+      success: true, 
+      message: 'Événement créé avec succès',
+      data: savedEvent 
+    });
   } catch (error) {
-    console.error(error);
-    // Si c'est une erreur de validation
+    console.error('Erreur lors de la création de l\'événement:', error.message);
+    // Erreur de validation mongoose
     if (error.name === 'ValidationError') {
-      const messages = Object.values(error.errors).map(val => val.message);
-      return res.status(400).json({ message: messages.join(', ') });
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Données d\'événement invalides',
+        errors: Object.values(error.errors).map(err => err.message)
+      });
     }
-    res.status(500).json({ message: 'Erreur serveur' });
+    
+    res.status(500).json({ 
+      success: false, 
+      message: 'Erreur serveur lors de la création de l\'événement',
+      error: error.message
+    });
   }
 });
 
@@ -89,36 +140,66 @@ router.post('/', protect, async (req, res) => {
 // @access  Private
 router.put('/:id', protect, async (req, res) => {
   try {
+    // Vérifier si MongoDB est connecté
+    if (mongoose.connection.readyState !== 1) {
+      return res.status(503).json({ 
+        success: false, 
+        message: 'Service temporairement indisponible, base de données inaccessible'
+      });
+    }
+
+    // Vérifier si l'ID est valide
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'ID d\'événement invalide'
+      });
+    }
+
     const { title, start, end, client, description, status, assignedTo } = req.body;
     
-    const event = await Event.findById(req.params.id);
+    const updatedEvent = await Event.findByIdAndUpdate(
+      req.params.id, 
+      {
+        title: title || undefined,
+        start: start || undefined,
+        end: end || undefined,
+        client: client || undefined,
+        description: description !== undefined ? description : undefined,
+        status: status || undefined,
+        assignedTo: assignedTo !== undefined ? assignedTo : undefined
+      },
+      { new: true, runValidators: true }
+    );
     
-    if (!event) {
-      return res.status(404).json({ message: 'Événement non trouvé' });
+    if (!updatedEvent) {
+      return res.status(404).json({ 
+        success: false, 
+        message: 'Événement non trouvé'
+      });
     }
     
-    // Mettre à jour les champs
-    event.title = title || event.title;
-    event.start = start || event.start;
-    event.end = end || event.end;
-    event.client = client || event.client;
-    event.description = description !== undefined ? description : event.description;
-    event.status = status || event.status;
-    event.assignedTo = assignedTo !== undefined ? assignedTo : event.assignedTo;
-    
-    const updatedEvent = await event.save();
-    res.json(updatedEvent);
+    res.json({ 
+      success: true, 
+      message: 'Événement mis à jour avec succès',
+      data: updatedEvent 
+    });
   } catch (error) {
-    console.error(error);
-    if (error.kind === 'ObjectId') {
-      return res.status(404).json({ message: 'Événement non trouvé' });
-    }
-    // Si c'est une erreur de validation
+    console.error('Erreur lors de la mise à jour de l\'événement:', error.message);
+    // Erreur de validation mongoose
     if (error.name === 'ValidationError') {
-      const messages = Object.values(error.errors).map(val => val.message);
-      return res.status(400).json({ message: messages.join(', ') });
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Données d\'événement invalides',
+        errors: Object.values(error.errors).map(err => err.message)
+      });
     }
-    res.status(500).json({ message: 'Erreur serveur' });
+    
+    res.status(500).json({ 
+      success: false, 
+      message: 'Erreur serveur lors de la mise à jour de l\'événement',
+      error: error.message
+    });
   }
 });
 
@@ -127,20 +208,43 @@ router.put('/:id', protect, async (req, res) => {
 // @access  Private/Admin
 router.delete('/:id', protect, admin, async (req, res) => {
   try {
-    const event = await Event.findById(req.params.id);
+    // Vérifier si MongoDB est connecté
+    if (mongoose.connection.readyState !== 1) {
+      return res.status(503).json({ 
+        success: false, 
+        message: 'Service temporairement indisponible, base de données inaccessible'
+      });
+    }
+
+    // Vérifier si l'ID est valide
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'ID d\'événement invalide'
+      });
+    }
+
+    const event = await Event.findByIdAndDelete(req.params.id);
     
     if (!event) {
-      return res.status(404).json({ message: 'Événement non trouvé' });
+      return res.status(404).json({ 
+        success: false, 
+        message: 'Événement non trouvé'
+      });
     }
     
-    await event.deleteOne();
-    res.json({ message: 'Événement supprimé' });
+    res.json({ 
+      success: true, 
+      message: 'Événement supprimé avec succès',
+      data: {} 
+    });
   } catch (error) {
-    console.error(error);
-    if (error.kind === 'ObjectId') {
-      return res.status(404).json({ message: 'Événement non trouvé' });
-    }
-    res.status(500).json({ message: 'Erreur serveur' });
+    console.error('Erreur lors de la suppression de l\'événement:', error.message);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Erreur serveur lors de la suppression de l\'événement',
+      error: error.message
+    });
   }
 });
 
