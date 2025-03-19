@@ -202,11 +202,21 @@ fi
 
 # Construction du frontend
 echo "===== CONSTRUCTION DU FRONTEND ====="
-NODE_OPTIONS=--openssl-legacy-provider npm run build
+# Modification : retirer l'option --openssl-legacy-provider
+export NODE_ENV=production
+export CI=false
+export DISABLE_ESLINT_PLUGIN=true
+
+# Utiliser npm run build directement sans l'option problématique
+echo "Lancement du build avec NODE_ENV=$NODE_ENV"
+npm run build
 
 # Vérifier que le build a réussi
 if [ ! -d "build" ]; then
   echo "ERREUR: La construction du frontend a échoué. Le dossier 'build' n'existe pas."
+  # Afficher plus d'informations pour le débogage
+  echo "Contenu du répertoire actuel:"
+  ls -la
   exit 1
 fi
 

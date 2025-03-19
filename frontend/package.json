@@ -16,13 +16,14 @@
     "web-vitals": "^2.1.4"
   },
   "scripts": {
-    "start": "react-scripts start",
-    "build": "NODE_ENV=production DISABLE_ESLINT_PLUGIN=true CI=false react-scripts build",
+    "start": "NODE_ENV=development react-scripts start",
+    "build": "NODE_ENV=production DISABLE_ESLINT_PLUGIN=true CI=false react-scripts --max_old_space_size=4096 build",
     "build:legacy": "NODE_OPTIONS=--openssl-legacy-provider DISABLE_ESLINT_PLUGIN=true CI=false react-scripts build",
     "build:fixed": "node build-with-fix.js",
     "build:docker": "node fix-ajv.js && NODE_OPTIONS=--openssl-legacy-provider DISABLE_ESLINT_PLUGIN=true CI=false react-scripts build",
     "test": "react-scripts test",
-    "eject": "react-scripts eject"
+    "eject": "react-scripts eject",
+    "fix-ajv": "node fix-ajv.js"
   },
   "eslintConfig": {
     "extends": [
