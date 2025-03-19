@@ -1,7 +1,8 @@
 const fs = require('fs');
 const path = require('path');
+const { execSync } = require('child_process');
 
-console.log('🔧 Script de correction d\'ajv');
+console.log('🔧 Script de correction et build du frontend');
 
 // Définir les chemins des répertoires et fichiers
 const frontendDir = __dirname;
@@ -196,5 +197,17 @@ writeFile(path.join(ajvCompileDir, 'names.js'), namesContent);
 writeFile(path.join(ajvCompileDir, 'errors.js'), errorsContent);
 writeFile(path.join(ajvVocabulariesDir, 'code.js'), codeContent);
 
-console.log('✅ Fichiers ajv corrigés avec succès! Vous pouvez maintenant utiliser:');
-console.log('   NODE_OPTIONS=--openssl-legacy-provider npm run build'); 
+console.log('✅ Fichiers ajv corrigés avec succès!');
+
+// Lancer le build
+console.log('🏗️ Lancement du build frontend...');
+try {
+  execSync('NODE_OPTIONS=--openssl-legacy-provider npm run build', { 
+    stdio: 'inherit', 
+    cwd: frontendDir
+  });
+  console.log('✅ Build terminé avec succès!');
+} catch (error) {
+  console.error('❌ Erreur lors du build:', error.message);
+  process.exit(1);
+} 

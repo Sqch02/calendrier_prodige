@@ -1,30 +1,24 @@
-const fs = require('fs');
-const path = require('path');
+#!/bin/bash
 
-console.log('🔧 Script de correction d\'ajv');
+echo "🔍 Vérification et réparation complète d'ajv..."
 
-// Définir les chemins des répertoires et fichiers
-const frontendDir = __dirname;
-const nodeModulesDir = path.join(frontendDir, 'node_modules');
-const ajvDir = path.join(nodeModulesDir, 'ajv', 'dist');
-const ajvCompileDir = path.join(ajvDir, 'compile');
-const ajvVocabulariesDir = path.join(ajvDir, 'vocabularies');
+# Vérifier si le dossier node_modules existe dans frontend
+if [ ! -d "frontend/node_modules" ]; then
+  echo "⚠️ Le dossier frontend/node_modules n'existe pas. Installation des dépendances..."
+  cd frontend && npm install
+  cd ..
+fi
 
-// Créer les répertoires s'ils n'existent pas
-console.log('📂 Vérification des répertoires...');
+# Vérifier et créer les dossiers nécessaires
+echo "📁 Vérification des dossiers ajv..."
+mkdir -p frontend/node_modules/ajv/dist/compile
+mkdir -p frontend/node_modules/ajv/dist/vocabularies
 
-function ensureDir(dir) {
-  if (!fs.existsSync(dir)) {
-    fs.mkdirSync(dir, { recursive: true });
-    console.log(`📁 Répertoire créé: ${dir}`);
-  }
-}
+# Créer ou remplacer les fichiers problématiques
+echo "📝 Création des fichiers ajv corrigés..."
 
-ensureDir(ajvCompileDir);
-ensureDir(ajvVocabulariesDir);
-
-// Contenu des fichiers corrigés
-const codegenContent = `
+# 1. codegen.js - version améliorée avec _ comme fonction
+cat > frontend/node_modules/ajv/dist/compile/codegen.js << 'EOF'
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.or = exports.and = exports.not = exports.CodeGen = exports.operators = exports.varKinds = exports.ValueScopeName = exports.ValueScope = exports.Scope = exports.Name = exports.regexpCode = exports.stringify = exports.getProperty = exports.nil = exports.strConcat = exports.str = exports._ = void 0;
@@ -69,9 +63,10 @@ exports.CodeGen = function() {
 exports.not = function(x) { return "!" + x; };
 exports.and = function(x, y) { return x + " && " + y; };
 exports.or = function(x, y) { return x + " || " + y; };
-`;
+EOF
 
-const namesContent = `
+# 2. names.js
+cat > frontend/node_modules/ajv/dist/compile/names.js << 'EOF'
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 const codegen_1 = require("./codegen");
@@ -94,9 +89,10 @@ const names = {
     jsonPart: codegen_1.Name("jsonPart"),
 };
 exports.default = names;
-`;
+EOF
 
-const errorsContent = `
+# 3. errors.js
+cat > frontend/node_modules/ajv/dist/compile/errors.js << 'EOF'
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.extendErrors = exports.resetErrorsCount = exports.reportExtraError = exports.reportError = exports.keyword$DataError = exports.keywordError = void 0;
@@ -133,9 +129,10 @@ function extendErrors(it) {
     return codegen_1.Name("extendErrors");
 }
 exports.extendErrors = extendErrors;
-`;
+EOF
 
-const codeContent = `
+# 4. vocabularies/code.js - ajouter ce fichier qui pose problème
+cat > frontend/node_modules/ajv/dist/vocabularies/code.js << 'EOF'
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.regexpCode = exports.getEsmExportName = exports.getProperty = exports.safeStringify = exports.stringify = exports.strConcat = exports.addCodeArg = exports.str = exports._ = exports.nil = exports._Code = exports.Name = exports.IDENTIFIER = void 0;
@@ -164,12 +161,12 @@ exports._Code = _Code;
 
 // Fonctions simplifiées
 function addCodeArg(code, arg) {
-    return \`\${code}(\${arg})\`;
+    return `${code}(${arg})`;
 }
 exports.addCodeArg = addCodeArg;
 
 function safeStringify(obj) {
-    return JSON.stringify(obj).replace(/\\u2028/g, "\\\\u2028").replace(/\\u2029/g, "\\\\u2029");
+    return JSON.stringify(obj).replace(/\u2028/g, "\\u2028").replace(/\u2029/g, "\\u2029");
 }
 exports.safeStringify = safeStringify;
 
@@ -177,24 +174,24 @@ function getEsmExportName(key) {
     return key;
 }
 exports.getEsmExportName = getEsmExportName;
-`;
+EOF
 
-// Écrire les fichiers avec le contenu corrigé
-console.log('📝 Création des fichiers ajv corrigés...');
+echo "✅ Fichiers ajv corrigés avec succès!"
 
-function writeFile(filePath, content) {
-  try {
-    fs.writeFileSync(filePath, content);
-    console.log(`✅ Fichier modifié: ${filePath}`);
-  } catch (error) {
-    console.error(`❌ Erreur lors de la modification du fichier ${filePath}:`, error);
-  }
-}
+# Nettoyer le package.json des surcharges problématiques
+if [ -f "frontend/package.json" ]; then
+  echo "🔧 Nettoyage du package.json..."
+  # Créer une version temporaire sans les sections overrides/resolutions
+  grep -v "overrides" frontend/package.json | grep -v "resolutions" > frontend/package.json.clean
+  mv frontend/package.json.clean frontend/package.json
+  echo "✅ package.json nettoyé"
+fi
 
-writeFile(path.join(ajvCompileDir, 'codegen.js'), codegenContent);
-writeFile(path.join(ajvCompileDir, 'names.js'), namesContent);
-writeFile(path.join(ajvCompileDir, 'errors.js'), errorsContent);
-writeFile(path.join(ajvVocabulariesDir, 'code.js'), codeContent);
+echo "📊 Installation de versions spécifiques d'ajv..."
+cd frontend
+npm install ajv@6.12.6 ajv-keywords@3.5.2 --save-exact
 
-console.log('✅ Fichiers ajv corrigés avec succès! Vous pouvez maintenant utiliser:');
-console.log('   NODE_OPTIONS=--openssl-legacy-provider npm run build'); 
+echo "✅ Tout est prêt! Vous pouvez maintenant essayer de construire le frontend avec la commande:"
+echo "   cd frontend && npm run build"
+echo ""
+echo "💡 Astuce: Utilisez NODE_OPTIONS=--openssl-legacy-provider npm run build si vous rencontrez des problèmes de SSL" 

@@ -4,38 +4,28 @@ FROM node:14-alpine AS frontend-build
 WORKDIR /app/frontend
 
 # Copier les fichiers du frontend
-COPY frontend/package*.json ./
-COPY frontend/fix-ajv.js ./
+COPY frontend/package.json frontend/fix-ajv.js frontend/fix-and-build.sh ./
 
-# Nettoyer le package.json pour retirer les overrides problématiques
-RUN cat package.json | grep -v "overrides" | grep -v "resolutions" > package.json.clean && \
-    mv package.json.clean package.json
+# Rendre le script exécutable
+RUN chmod +x fix-and-build.sh
 
-# Installer les dépendances avec des options de compatibilité
-RUN npm install --legacy-peer-deps --no-optional
-
-# Copier le code source du frontend
+# Copier le reste des fichiers frontend
 COPY frontend/ ./
 
-# Désactiver Eslint pour le build
-ENV DISABLE_ESLINT_PLUGIN=true
-ENV CI=false
-ENV NODE_OPTIONS=--openssl-legacy-provider
-
-# Build du frontend avec le script qui inclut la correction d'ajv
-RUN npm run build:docker
+# Construire le frontend avec notre script qui corrige ajv
+RUN ./fix-and-build.sh
 
 # Étape 2: Setup du backend
 FROM node:18-alpine
 
 WORKDIR /app
 
-# Copier les fichiers du backend
-COPY package*.json ./
-RUN npm install
-
-# Copier le code source du backend
+# Copier le backend
 COPY backend/ ./backend/
+COPY package*.json ./
+
+# Installer les dépendances du backend
+RUN npm install
 
 # Copier le build du frontend depuis l'étape précédente
 COPY --from=frontend-build /app/frontend/build ./frontend/build
