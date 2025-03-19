@@ -73,6 +73,8 @@ docker run -p 5000:5000 -e MONGODB_URI=votre_uri_mongodb calendrier-prodige
 
 ## Déploiement sur Railway
 
+### Méthode manuelle
+
 1. Créer un nouveau projet sur Railway
 2. Connecter le dépôt Git
 3. Ajouter un service MongoDB
@@ -81,6 +83,39 @@ docker run -p 5000:5000 -e MONGODB_URI=votre_uri_mongodb calendrier-prodige
    - MONGODB_URI=(URI fournie par Railway)
    - JWT_SECRET=(votre secret)
    - PORT=5000
+
+### Méthode automatisée (recommandée)
+
+Nous fournissons un script de déploiement pour faciliter le processus :
+
+1. Rendre le script exécutable
+```
+chmod +x railway-deploy.sh
+```
+
+2. Exécuter le script de déploiement
+```
+./railway-deploy.sh
+```
+
+Le script va :
+- Vérifier l'installation de Railway CLI
+- Vous connecter à votre compte Railway
+- Générer un fichier de variables d'environnement pour la production
+- Construire l'image Docker
+- Déployer l'application sur Railway
+
+## Résolution de problèmes
+
+### Problèmes de build React
+
+Si vous rencontrez des problèmes liés à ajv lors du build React, utilisez notre script de correction :
+
+```
+cd frontend
+node fix-ajv.js
+npm run build:docker
+```
 
 ## Crédits
 

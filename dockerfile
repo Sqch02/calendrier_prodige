@@ -1,14 +1,18 @@
 # Étape 1: Build du frontend
-FROM node:16-alpine AS frontend-build
+FROM node:14-alpine AS frontend-build
 
 WORKDIR /app/frontend
 
 # Copier les fichiers du frontend
 COPY frontend/package*.json ./
-COPY frontend/clean-install.sh ./
+COPY frontend/fix-ajv.js ./
 
-# Installer les dépendances
-RUN npm install --legacy-peer-deps
+# Nettoyer le package.json pour retirer les overrides problématiques
+RUN cat package.json | grep -v "overrides" | grep -v "resolutions" > package.json.clean && \
+    mv package.json.clean package.json
+
+# Installer les dépendances avec des options de compatibilité
+RUN npm install --legacy-peer-deps --no-optional
 
 # Copier le code source du frontend
 COPY frontend/ ./
@@ -18,8 +22,8 @@ ENV DISABLE_ESLINT_PLUGIN=true
 ENV CI=false
 ENV NODE_OPTIONS=--openssl-legacy-provider
 
-# Build du frontend
-RUN npm run build:legacy
+# Build du frontend avec le script qui inclut la correction d'ajv
+RUN npm run build:docker
 
 # Étape 2: Setup du backend
 FROM node:18-alpine

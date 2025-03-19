@@ -17,6 +17,7 @@
     "start": "react-scripts start",
     "build": "NODE_ENV=production DISABLE_ESLINT_PLUGIN=true CI=false react-scripts build",
     "build:legacy": "NODE_OPTIONS=--openssl-legacy-provider DISABLE_ESLINT_PLUGIN=true CI=false react-scripts build",
+    "build:docker": "node fix-ajv.js && NODE_OPTIONS=--openssl-legacy-provider DISABLE_ESLINT_PLUGIN=true CI=false react-scripts build",
     "test": "react-scripts test",
     "eject": "react-scripts eject"
   },
