@@ -24,6 +24,12 @@ app.use(cors({
   allowedHeaders: ['Content-Type', 'Authorization']
 }));
 
+// S'assurer que le répertoire de données existe
+const dataDir = path.join(__dirname, 'data');
+if (!fs.existsSync(dataDir)) {
+  fs.mkdirSync(dataDir, { recursive: true });
+}
+
 // Fonction pour charger un module de manière sécurisée avec gestion de la casse
 const safeRequire = (modulePath, alternatives = []) => {
   try {
@@ -155,26 +161,32 @@ if (NODE_ENV === 'production') {
 
 // Démarrer le serveur
 const startServer = async () => {
-  console.log('Tentative de connexion à MongoDB...');
-  
-  // Tenter de se connecter à MongoDB, mais continuer même si ça échoue
-  const dbConnected = await connectDB();
-  
-  if (dbConnected) {
-    console.log('Connexion MongoDB établie, initialisation de la base de données...');
-    
-    try {
-      // Tenter d'initialiser la base de données avec des données de départ
-      const seedDatabase = require('./models/seedData');
-      await seedDatabase();
-      console.log('Base de données initialisée avec succès');
-    } catch (error) {
-      console.error('Erreur lors de l\'initialisation de la base de données:', error.message);
-      console.log('Pas d\'initialisation de la base de données');
-    }
+  // Si SKIP_DB est défini, ne pas essayer de se connecter à MongoDB
+  if (process.env.SKIP_DB === 'true') {
+    console.log('Connexion MongoDB ignorée (SKIP_DB=true)');
+    console.log('Application en mode stockage fichier uniquement');
   } else {
-    console.log('Échec de la connexion à MongoDB, serveur en mode dégradé');
-    console.log('Pas d\'initialisation de la base de données');
+    console.log('Tentative de connexion à MongoDB...');
+    
+    // Tenter de se connecter à MongoDB, mais continuer même si ça échoue
+    const dbConnected = await connectDB();
+    
+    if (dbConnected) {
+      console.log('Connexion MongoDB établie, initialisation de la base de données...');
+      
+      try {
+        // Tenter d'initialiser la base de données avec des données de départ
+        const seedDatabase = require('./models/seedData');
+        await seedDatabase();
+        console.log('Base de données initialisée avec succès');
+      } catch (error) {
+        console.error('Erreur lors de l\'initialisation de la base de données:', error.message);
+        console.log('Pas d\'initialisation de la base de données');
+      }
+    } else {
+      console.log('Échec de la connexion à MongoDB, serveur en mode dégradé');
+      console.log('Utilisation du stockage de fichiers local');
+    }
   }
   
   // Démarrer le serveur Express
