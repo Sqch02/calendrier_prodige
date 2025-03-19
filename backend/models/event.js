@@ -1,38 +1,53 @@
 const mongoose = require('mongoose');
 
+// Schéma d'événement
 const eventSchema = new mongoose.Schema({
   title: {
     type: String,
-    required: [true, 'Le titre est obligatoire']
+    required: true,
+    trim: true
   },
   start: {
     type: Date,
-    required: [true, 'La date de début est obligatoire']
+    required: true
   },
   end: {
     type: Date,
-    required: [true, 'La date de fin est obligatoire']
+    required: true
   },
   client: {
     type: String,
-    required: [true, 'Le client est obligatoire']
+    required: false,
+    trim: true
   },
   description: {
-    type: String
+    type: String,
+    required: false,
+    trim: true
   },
   status: {
     type: String,
-    enum: {
-      values: ['pending', 'confirmed', 'in-progress', 'completed', 'cancelled'],
-      message: 'Statut non valide'
-    },
-    default: 'pending'
+    enum: ['scheduled', 'completed', 'cancelled', 'pending'],
+    default: 'scheduled'
   },
   assignedTo: {
-    type: String
+    type: String,
+    required: false
+  },
+  createdAt: {
+    type: Date,
+    default: Date.now
+  },
+  updatedAt: {
+    type: Date,
+    default: Date.now
   }
-}, {
-  timestamps: true
+});
+
+// Middleware pour mettre à jour le champ updatedAt avant chaque sauvegarde
+eventSchema.pre('save', function(next) {
+  this.updatedAt = Date.now();
+  next();
 });
 
 // Validation pour s'assurer que la date de fin est après la date de début
@@ -43,6 +58,7 @@ eventSchema.pre('validate', function(next) {
   next();
 });
 
+// Création du modèle à partir du schéma
 const Event = mongoose.model('Event', eventSchema);
 
 module.exports = Event;

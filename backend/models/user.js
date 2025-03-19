@@ -60,20 +60,42 @@ const UserSchema = new mongoose.Schema({
     }
   },
   resetPasswordToken: String,
-  resetPasswordExpire: Date
+  resetPasswordExpire: Date,
+  isActive: {
+    type: Boolean,
+    default: true
+  },
+  createdAt: {
+    type: Date,
+    default: Date.now
+  },
+  updatedAt: {
+    type: Date,
+    default: Date.now
+  }
 }, {
   timestamps: true
 });
 
-// Hacher le mot de passe avant de sauvegarder
+// Middleware pour hacher le mot de passe avant l'enregistrement
 UserSchema.pre('save', async function(next) {
-  if (!this.isModified('password')) {
-    next();
-  }
+  // Mise à jour de la date de mise à jour
+  this.updatedAt = Date.now();
   
-  const salt = await bcrypt.genSalt(10);
-  this.password = await bcrypt.hash(this.password, salt);
-  next();
+  // Vérifiez si le mot de passe a été modifié (ou est nouveau)
+  if (!this.isModified('password')) {
+    return next();
+  }
+
+  try {
+    // Générer un sel
+    const salt = await bcrypt.genSalt(10);
+    // Hacher le mot de passe avec le sel
+    this.password = await bcrypt.hash(this.password, salt);
+    next();
+  } catch (error) {
+    next(error);
+  }
 });
 
 // Méthode pour générer et retourner un JWT
@@ -107,6 +129,11 @@ UserSchema.methods.getResetPasswordToken = function() {
   this.resetPasswordExpire = Date.now() + 10 * 60 * 1000;
 
   return resetToken;
+};
+
+// Méthode pour comparer le mot de passe saisi avec le mot de passe haché
+UserSchema.methods.comparePassword = async function(candidatePassword) {
+  return await bcrypt.compare(candidatePassword, this.password);
 };
 
 module.exports = mongoose.model('User', UserSchema);
