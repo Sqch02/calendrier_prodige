@@ -28,8 +28,9 @@ RUN apk add --no-cache python3 make g++
 WORKDIR /app
 
 # Copier les fichiers de package et installer les dépendances
-COPY package.json package-lock.json ./
-RUN npm ci
+COPY package.json ./
+# Utiliser npm install qui est plus tolérant que npm ci
+RUN npm install
 
 # Copier le code source
 COPY . .
@@ -46,8 +47,9 @@ FROM node:18-alpine
 WORKDIR /app
 
 # Copier les fichiers de package et installer les dépendances de production seulement
-COPY package.json package-lock.json ./
-RUN npm ci --omit=dev
+COPY package.json ./
+# Utiliser npm install qui ne nécessite pas package-lock.json
+RUN npm install --omit=dev
 
 # Copier le build du frontend à partir de la phase précédente
 COPY --from=builder /app/build ./build
