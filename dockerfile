@@ -20,9 +20,12 @@ FROM node:18-alpine
 
 WORKDIR /app
 
-# Copier le backend
+# Copier le backend et les fichiers racine
 COPY backend/ ./backend/
-COPY package*.json ./
+COPY package*.json start.sh ./
+
+# Rendre le script de démarrage exécutable
+RUN chmod +x start.sh
 
 # Installer les dépendances du backend
 RUN npm install
@@ -37,5 +40,5 @@ ENV PORT=5000
 # Exposer le port
 EXPOSE 5000
 
-# Démarrer l'application
-CMD ["node", "backend/server.js"]
+# Démarrer l'application avec notre script
+CMD ["./start.sh"]

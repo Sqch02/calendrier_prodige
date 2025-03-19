@@ -33,11 +33,12 @@ const seedEvents = [
 
 const seedDatabase = async () => {
   try {
-    // Connecter à la base de données
-    await connectDB();
-    
+    // On suppose que MongoDB est déjà connecté
     // Vérifier si la collection est vide
-    const count = await Event.countDocuments();
+    const count = await Event.countDocuments().catch(err => {
+      console.error('Erreur lors de la vérification des documents:', err);
+      return 0;
+    });
     
     if (count === 0) {
       console.log('Initialisation de la base de données avec des exemples...');
@@ -49,6 +50,7 @@ const seedDatabase = async () => {
     
   } catch (error) {
     console.error('Erreur lors de l\'initialisation de la base de données:', error);
+    // Ne pas propager l'erreur, permettre à l'application de continuer
   }
 };
 
