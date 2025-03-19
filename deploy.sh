@@ -1,30 +1,19 @@
 #!/bin/bash
 
-# Script de déploiement pour l'application de calendrier partagé
+echo "🚀 Préparation du déploiement de l'application..."
 
-echo "🚀 Début du déploiement..."
+# Copier notre nouveau Dockerfile à la place de l'original
+echo "🔄 Utilisation du Dockerfile optimisé..."
+cp Dockerfile.new Dockerfile
 
-# 1. Vérification de la structure des dossiers
-echo "📁 Vérification de la structure des dossiers..."
-node ensure-directories.js
+# Construire l'image Docker
+echo "🏗️ Construction de l'image Docker..."
+docker build -t calendrier-prodige .
 
-# 2. Installation des dépendances
-echo "📦 Installation des dépendances du backend..."
-npm install
+# Exécuter l'image localement pour tester
+echo "🧪 Test de l'application en local..."
+docker run -d -p 5000:5000 --name calendrier-test calendrier-prodige
 
-echo "📦 Installation des dépendances du frontend..."
-cd frontend
-npm install
-cd ..
-
-# 3. Construction du frontend
-echo "🏗️ Construction du frontend..."
-cd frontend
-npm run build
-cd ..
-
-# 4. Démarrage de l'application
-echo "🌐 Démarrage de l'application..."
-npm start
-
-echo "✅ Déploiement terminé !"
+echo "✅ Déploiement local terminé ! L'application devrait être accessible sur http://localhost:5000"
+echo "📝 Pour arrêter le conteneur de test, exécutez: docker stop calendrier-test && docker rm calendrier-test"
+echo "🌐 Pour déployer sur Railway, exécutez: ./railway-deploy.sh"
