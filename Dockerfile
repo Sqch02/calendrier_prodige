@@ -15,8 +15,8 @@ COPY .env* ./
 # Installer les dépendances du backend
 RUN npm install
 
-# Créer le script de démarrage
-RUN echo '#!/bin/sh\necho "Démarrage du serveur Node.js..."\necho "MONGODB_URI=$MONGODB_URI"\necho "JWT_SECRET=${JWT_SECRET:0:3}..."\necho "NODE_ENV=$NODE_ENV"\nnode backend/server.js' > start.sh && chmod +x start.sh
+# Créer le script de démarrage dans un emplacement absolument sûr
+RUN echo '#!/bin/sh\necho "Démarrage du serveur Node.js..."\necho "MONGODB_URI=$MONGODB_URI"\necho "JWT_SECRET=${JWT_SECRET:0:3}..."\necho "NODE_ENV=$NODE_ENV"\nnode /app/backend/server.js' > /app/start.sh && chmod +x /app/start.sh
 
 # Copier les fichiers frontend
 COPY frontend frontend/
@@ -47,7 +47,8 @@ RUN mkdir -p backend/routes && \
 RUN echo "Vérification de la structure des fichiers..." && \
     ls -la backend/models/ && \
     ls -la backend/routes/ && \
-    ls -la frontend/build/
+    ls -la frontend/build/ && \
+    ls -la /app/
 
 # Définir les variables d'environnement
 ENV NODE_ENV=production \
@@ -56,5 +57,5 @@ ENV NODE_ENV=production \
 # Exposer le port
 EXPOSE 8080
 
-# Démarrer le serveur
-CMD ["./start.sh"]
+# Utiliser ENTRYPOINT au lieu de CMD pour s'assurer que le script est exécuté
+ENTRYPOINT ["/app/start.sh"]
