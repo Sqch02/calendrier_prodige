@@ -1,160 +1,189 @@
 const express = require('express');
-const path = require('path');
 const cors = require('cors');
-const config = require('./config');
-const connectDB = require('./models/db');
-const seedDatabase = require('./models/seedData');
+const path = require('path');
 const fs = require('fs');
+const mongoose = require('mongoose');
+const config = require('./config');
+const { connectDB } = require('./models/db');
 
-// Routes - Chargement robuste qui gère les différentes casses possibles
-let eventRoutes, userRoutes;
+// Configurer les variables d'environnement
+const PORT = process.env.PORT || config.PORT || 5000;
+const NODE_ENV = process.env.NODE_ENV || 'development';
 
-// Fonction utilitaire pour charger un module avec gestion d'erreur et de casse
-const safeRequire = (basePath, moduleName) => {
-  // Liste des variantes possibles du nom de fichier
-  const variants = [
-    `${moduleName}.js`,
-    `${moduleName.toLowerCase()}.js`,
-    `${moduleName}s.js`,
-    `${moduleName.toLowerCase()}s.js`
-  ];
-  
-  // Essayer de charger chaque variante
-  for (const variant of variants) {
-    const fullPath = path.join(basePath, variant);
-    try {
-      if (fs.existsSync(fullPath)) {
-        console.log(`Module trouvé: ${fullPath}`);
-        return require(fullPath);
+// Initialiser express
+const app = express();
+
+// Middleware pour parser le JSON et les URL-encoded
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+
+// Configurer CORS
+app.use(cors({
+  origin: process.env.CORS_ORIGIN || config.CORS_ORIGIN || '*',
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+}));
+
+// Fonction pour charger un module de manière sécurisée avec gestion de la casse
+const safeRequire = (modulePath, alternatives = []) => {
+  try {
+    return require(modulePath);
+  } catch (err) {
+    console.warn(`Erreur de chargement du module ${modulePath}:`, err.message);
+    
+    // Essayer les alternatives (différentes casses)
+    for (const alt of alternatives) {
+      try {
+        const result = require(alt);
+        console.log(`Module chargé avec succès via chemin alternatif: ${alt}`);
+        return result;
+      } catch (altErr) {
+        console.warn(`Échec du chemin alternatif ${alt}:`, altErr.message);
       }
-    } catch (e) {
-      console.log(`Échec du chargement de ${fullPath}:`, e.message);
     }
-  }
-  
-  // Si aucune variante ne fonctionne, créer un routeur par défaut
-  console.warn(`ATTENTION: Module ${moduleName} introuvable. Création d'un routeur par défaut.`);
-  const router = express.Router();
-  
-  // Route par défaut
-  router.get('/', (req, res) => {
-    res.json({
-      success: true,
-      message: `API ${moduleName} temporairement indisponible`,
-      error: `Module ${moduleName} introuvable dans le système de fichiers.`
+    
+    console.error(`Tous les chemins ont échoué pour le module ${modulePath}`);
+    
+    // Créer un router par défaut
+    const defaultRouter = express.Router();
+    defaultRouter.all('*', (req, res) => {
+      res.status(503).json({
+        success: false,
+        message: 'Cette fonctionnalité est temporairement indisponible',
+        error: `Le module ${modulePath} n'a pas pu être chargé`
+      });
     });
-  });
-  
-  return router;
+    
+    return defaultRouter;
+  }
 };
 
-// Chargement robuste des routes
-try {
-  eventRoutes = require('./routes/eventroutes');
-  console.log('Routes d\'événements chargées avec succès');
-} catch (error) {
-  console.warn('Erreur lors du chargement des routes d\'événements:', error.message);
-  eventRoutes = safeRequire(path.join(__dirname, 'routes'), 'eventRoute');
-}
-
-try {
-  userRoutes = require('./routes/userroutes');
-  console.log('Routes d\'utilisateurs chargées avec succès');
-} catch (error) {
-  console.warn('Erreur lors du chargement des routes d\'utilisateurs:', error.message);
-  userRoutes = safeRequire(path.join(__dirname, 'routes'), 'userRoute');
-}
-
-// Configuration
-const app = express();
-const PORT = process.env.PORT || config.PORT;
-
-// Middleware
-app.use(cors({
-  origin: config.CORS_ORIGIN,
-  credentials: true
-}));
-app.use(express.json());
-
-// Logs pour le débogage
-console.log('=== DÉMARRAGE DE L\'APPLICATION ===');
-console.log(`Environnement: ${process.env.NODE_ENV || config.NODE_ENV}`);
-console.log(`Port: ${PORT}`);
-console.log(`CORS Origin: ${config.CORS_ORIGIN}`);
-console.log('====================================');
-
-// Endpoint de healthcheck - DOIT toujours répondre
+// Healthcheck endpoint
 app.get('/', (req, res) => {
   console.log('Healthcheck appelé - réponse 200');
-  res.status(200).json({ 
-    message: 'Service en ligne', 
-    version: '1.0.0',
-    env: process.env.NODE_ENV || config.NODE_ENV,
-    timestamp: new Date().toISOString()
-  });
+  res.status(200).send({ message: 'Service en ligne', version: '1.0.0', env: NODE_ENV, timestamp: new Date().toISOString() });
 });
 
-// Routes API
+// Affichage des informations de démarrage
+console.log('\n=== DÉMARRAGE DE L\'APPLICATION ===');
+console.log(`Environnement: ${NODE_ENV}`);
+console.log(`Port: ${PORT}`);
+console.log(`CORS Origin: ${process.env.CORS_ORIGIN || config.CORS_ORIGIN || '*'}`);
+console.log('====================================\n');
+
+// Charger et connecter les routes API
+const eventRoutes = safeRequire('./routes/eventRoutes', [
+  './routes/eventroutes',
+  './routes/event-routes',
+  './routes/EventRoutes'
+]);
+const userRoutes = safeRequire('./routes/userRoutes', [
+  './routes/userroutes',
+  './routes/user-routes',
+  './routes/UserRoutes'
+]);
+
+console.log(eventRoutes ? 'Routes d\'événements chargées avec succès' : 'Échec du chargement des routes d\'événements');
+console.log(userRoutes ? 'Routes d\'utilisateurs chargées avec succès' : 'Échec du chargement des routes d\'utilisateurs');
+
+// Monter les routes API
 app.use('/api/events', eventRoutes);
 app.use('/api/users', userRoutes);
 
-// Servir les fichiers statiques en production
-if (process.env.NODE_ENV === 'production' || config.NODE_ENV === 'production') {
-  // Définir le dossier statique
-  const staticPath = path.join(__dirname, '../frontend/build');
-  console.log(`Servir les fichiers statiques depuis: ${staticPath}`);
-  app.use(express.static(staticPath));
+// En production, servir les fichiers statiques du frontend
+if (NODE_ENV === 'production') {
+  // Définir les chemins possibles pour les fichiers statiques du frontend
+  const possibleStaticPaths = [
+    path.join(__dirname, '../frontend/build'),  // Chemin si le build est dans frontend/build
+    path.join(__dirname, '../build'),           // Chemin si le build est à la racine /build
+    path.join(__dirname, '../../frontend/build'), // Pour les structures différentes de Docker
+    path.join(__dirname, '../client/build')     // Alternative si le frontend est appelé "client"
+  ];
   
-  // Pour toutes les routes non-API, servir index.html
-  app.get('*', (req, res) => {
-    if (!req.path.startsWith('/api/')) {
-      res.sendFile(path.join(staticPath, 'index.html'));
+  // Trouver le premier chemin qui existe
+  let staticPath = null;
+  for (const testPath of possibleStaticPaths) {
+    if (fs.existsSync(testPath) && fs.existsSync(path.join(testPath, 'index.html'))) {
+      staticPath = testPath;
+      break;
     }
-  });
-} else {
-  // En développement
-  app.get('/api', (req, res) => {
-    res.send('API en cours d\'exécution...');
-  });
+  }
+  
+  if (staticPath) {
+    console.log(`Servir les fichiers statiques depuis: ${staticPath}`);
+    app.use(express.static(staticPath));
+    
+    // Pour toutes les autres routes, servir index.html
+    app.get('*', (req, res) => {
+      if (!req.path.startsWith('/api/')) {
+        res.sendFile(path.join(staticPath, 'index.html'));
+      }
+    });
+  } else {
+    console.warn('AVERTISSEMENT: Aucun chemin statique valide trouvé pour le frontend');
+    // Créer une page de garde temporaire
+    app.get('*', (req, res) => {
+      if (!req.path.startsWith('/api/')) {
+        res.send(`
+          <!DOCTYPE html>
+          <html>
+            <head>
+              <title>Calendrier Prodige</title>
+              <style>
+                body { font-family: Arial, sans-serif; text-align: center; padding: 50px; }
+                .container { max-width: 800px; margin: 0 auto; }
+                .alert { background-color: #f8d7da; color: #721c24; padding: 15px; border-radius: 4px; margin-bottom: 20px; }
+              </style>
+            </head>
+            <body>
+              <div class="container">
+                <h1>Calendrier Prodige</h1>
+                <div class="alert">
+                  <h2>Mode maintenance</h2>
+                  <p>L'interface utilisateur est en cours de chargement ou de maintenance.</p>
+                  <p>Veuillez réessayer dans quelques instants.</p>
+                  <p><small>Note technique: Les fichiers statiques du frontend n'ont pas été trouvés.</small></p>
+                </div>
+              </div>
+            </body>
+          </html>
+        `);
+      }
+    });
+  }
 }
 
-// IMPORTANT: Démarrer le serveur AVANT de tenter la connexion MongoDB
-// Cela garantit que le healthcheck fonctionnera même si MongoDB est inaccessible
-const server = app.listen(PORT, '0.0.0.0', () => {
-  console.log(`Serveur démarré sur le port ${PORT} en mode ${process.env.NODE_ENV || config.NODE_ENV}`);
-  
-  // Tentative de connexion à MongoDB APRÈS le démarrage du serveur
+// Démarrer le serveur
+const startServer = async () => {
   console.log('Tentative de connexion à MongoDB...');
-  connectDB()
-    .then((connected) => {
-      if (connected) {
-        console.log('MongoDB connecté avec succès');
-        return seedDatabase();
-      } else {
-        console.log('Échec de la connexion à MongoDB, serveur en mode dégradé');
-        return false;
-      }
-    })
-    .then((seeded) => {
-      if (seeded) {
-        console.log('Base de données initialisée avec succès');
-      } else {
-        console.log('Pas d\'initialisation de la base de données');
-      }
-    })
-    .catch((err) => {
-      console.error('ERREUR lors de l\'initialisation:', err.message);
-      console.log('Le serveur continue en mode dégradé');
-    });
-});
+  
+  // Tenter de se connecter à MongoDB, mais continuer même si ça échoue
+  const dbConnected = await connectDB();
+  
+  if (dbConnected) {
+    console.log('Connexion MongoDB établie, initialisation de la base de données...');
+    
+    try {
+      // Tenter d'initialiser la base de données avec des données de départ
+      const seedDatabase = require('./models/seedData');
+      await seedDatabase();
+      console.log('Base de données initialisée avec succès');
+    } catch (error) {
+      console.error('Erreur lors de l\'initialisation de la base de données:', error.message);
+      console.log('Pas d\'initialisation de la base de données');
+    }
+  } else {
+    console.log('Échec de la connexion à MongoDB, serveur en mode dégradé');
+    console.log('Pas d\'initialisation de la base de données');
+  }
+  
+  // Démarrer le serveur Express
+  app.listen(PORT, () => {
+    console.log(`Serveur démarré sur le port ${PORT} en mode ${NODE_ENV}`);
+  });
+};
 
-// Gestion des erreurs non capturées pour éviter l'arrêt du serveur
-process.on('uncaughtException', (err) => {
-  console.error('ERREUR NON CAPTURÉE:', err);
-  console.log('Le serveur continue après une erreur non capturée');
-});
-
-process.on('unhandledRejection', (err) => {
-  console.error('PROMESSE REJETÉE NON GÉRÉE:', err);
-  console.log('Le serveur continue après un rejet de promesse non géré');
+// Démarrer le serveur
+startServer().catch(err => {
+  console.error('Erreur fatale lors du démarrage du serveur:', err);
 });

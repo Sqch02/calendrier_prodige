@@ -23,7 +23,10 @@ WORKDIR /app/frontend
 RUN chmod +x fix-and-build.sh && ./fix-and-build.sh
 
 # Vérifier que le build a réussi
-RUN ls -la build || (echo "Le build du frontend a échoué!" && exit 1)
+RUN ls -la build/ && [ -f build/index.html ] || (echo "Le build du frontend a échoué - index.html manquant!" && exit 1)
+
+# Vérifier explicitement que index.html est présent
+RUN cat build/index.html | head -5
 
 # Revenir au répertoire racine
 WORKDIR /app
