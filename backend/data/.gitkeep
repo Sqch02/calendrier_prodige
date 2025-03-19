@@ -1,0 +1,2 @@
+// Ce fichier est nécessaire pour que le répertoire data soit inclus dans git.
+// Les événements seront stockés dans ce répertoire quand MongoDB n'est pas disponible. 
