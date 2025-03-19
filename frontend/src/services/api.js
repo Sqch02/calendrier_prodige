@@ -66,9 +66,12 @@ export const createEvent = async (eventData) => {
 };
 
 export const updateEvent = async (eventData) => {
-  return fetchAPI(`/events/${eventData.id}`, {
+  const { _id, ...data } = eventData;
+  const id = _id || eventData.id;
+  
+  return fetchAPI(`/events/${id}`, {
     method: 'PUT',
-    body: JSON.stringify(eventData),
+    body: JSON.stringify(data),
   });
 };
 

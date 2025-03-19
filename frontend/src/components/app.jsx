@@ -42,9 +42,9 @@ const App = () => {
     try {
       let updatedEvent;
       
-      if (eventData.id) {
+      if (eventData._id || eventData.id) {
         updatedEvent = await updateEvent(eventData);
-        setEvents(events.map(e => e.id === updatedEvent.id ? updatedEvent : e));
+        setEvents(events.map(e => (e._id === updatedEvent._id || e.id === updatedEvent._id) ? updatedEvent : e));
       } else {
         updatedEvent = await createEvent(eventData);
         setEvents([...events, updatedEvent]);
@@ -59,7 +59,7 @@ const App = () => {
   const handleDeleteEvent = async (eventId) => {
     try {
       await deleteEvent(eventId);
-      setEvents(events.filter(e => e.id !== eventId));
+      setEvents(events.filter(e => e._id !== eventId && e.id !== eventId));
       setIsModalOpen(false);
     } catch (error) {
       console.error("Erreur lors de la suppression de l'événement:", error);
@@ -103,7 +103,8 @@ const App = () => {
             event={currentEvent}
             onClose={() => setIsModalOpen(false)}
             onSave={handleSaveEvent}
-            onDelete={handleDeleteEvent}
+            onDelete={currentEvent && (currentEvent._id || currentEvent.id) ? 
+              () => handleDeleteEvent(currentEvent._id || currentEvent.id) : null}
           />
         )}
       </main>

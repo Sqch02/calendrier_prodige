@@ -1,118 +1,133 @@
 const express = require('express');
 const path = require('path');
 const cors = require('cors');
+const config = require('./config');
+const connectDB = require('./models/db');
+const seedDatabase = require('./models/seedData');
+const Event = require('./models/Event');
 
 // Configuration
 const app = express();
-const PORT = process.env.PORT || 5000;
+const PORT = config.PORT;
 
 // Middleware
-app.use(cors());
+app.use(cors({
+  origin: config.CORS_ORIGIN,
+  credentials: true
+}));
 app.use(express.json());
 
-// Données mockées pour le développement
-let events = [
-  {
-    id: '1',
-    title: 'Installation système',
-    start: '2025-03-05T09:00',
-    end: '2025-03-05T12:00',
-    client: 'Dupont SA',
-    description: 'Installation du nouveau système de gestion',
-    status: 'confirmed',
-    assignedTo: 'Jean Martin'
-  },
-  {
-    id: '2',
-    title: 'Maintenance serveur',
-    start: '2025-03-12T14:00',
-    end: '2025-03-12T16:30',
-    client: 'Michu SARL',
-    description: 'Maintenance mensuelle des serveurs',
-    status: 'pending',
-    assignedTo: 'Sophie Durand'
-  },
-  {
-    id: '3',
-    title: 'Formation utilisateurs',
-    start: '2025-03-20T10:00',
-    end: '2025-03-20T17:00',
-    client: 'Entreprise ABC',
-    description: 'Formation sur le nouvel outil de gestion',
-    status: 'in-progress',
-    assignedTo: 'Pierre Lefebvre'
-  }
-];
+// Connexion à MongoDB et initialisation
+connectDB().then(() => {
+  // Initialiser la base de données avec des exemples si elle est vide
+  seedDatabase();
+});
 
 // Routes API pour les événements
-app.get('/api/events', (req, res) => {
-  const { year, month } = req.query;
-  
-  if (year && month) {
-    // Filtrer par mois et année
-    const filteredEvents = events.filter(event => {
-      const eventDate = new Date(event.start);
-      return eventDate.getFullYear() === parseInt(year) && eventDate.getMonth() === parseInt(month) - 1;
-    });
+app.get('/api/events', async (req, res) => {
+  try {
+    const { year, month } = req.query;
     
-    res.json(filteredEvents);
-  } else {
-    // Retourner tous les événements
+    let query = {};
+    
+    if (year && month) {
+      // Filtrer par mois et année
+      const startDate = new Date(parseInt(year), parseInt(month) - 1, 1);
+      const endDate = new Date(parseInt(year), parseInt(month), 0);
+      
+      query = {
+        start: { 
+          $gte: startDate,
+          $lte: endDate
+        }
+      };
+    }
+    
+    const events = await Event.find(query).sort({ start: 1 });
     res.json(events);
+  } catch (error) {
+    console.error('Erreur lors de la récupération des événements:', error);
+    res.status(500).json({ message: 'Erreur serveur' });
   }
 });
 
-app.get('/api/events/:id', (req, res) => {
-  const event = events.find(e => e.id === req.params.id);
-  
-  if (event) {
-    res.json(event);
-  } else {
-    res.status(404).json({ message: 'Événement non trouvé' });
+app.get('/api/events/:id', async (req, res) => {
+  try {
+    const event = await Event.findById(req.params.id);
+    
+    if (event) {
+      res.json(event);
+    } else {
+      res.status(404).json({ message: 'Événement non trouvé' });
+    }
+  } catch (error) {
+    console.error('Erreur lors de la récupération de l\'événement:', error);
+    res.status(500).json({ message: 'Erreur serveur' });
   }
 });
 
-app.post('/api/events', (req, res) => {
-  const newEvent = {
-    ...req.body,
-    id: Date.now().toString()
-  };
-  
-  events.push(newEvent);
-  res.status(201).json(newEvent);
-});
-
-app.put('/api/events/:id', (req, res) => {
-  const index = events.findIndex(e => e.id === req.params.id);
-  
-  if (index !== -1) {
-    events[index] = { ...events[index], ...req.body };
-    res.json(events[index]);
-  } else {
-    res.status(404).json({ message: 'Événement non trouvé' });
+app.post('/api/events', async (req, res) => {
+  try {
+    const newEvent = new Event(req.body);
+    const savedEvent = await newEvent.save();
+    res.status(201).json(savedEvent);
+  } catch (error) {
+    console.error('Erreur lors de la création de l\'événement:', error);
+    res.status(400).json({ message: 'Données invalides', errors: error.errors });
   }
 });
 
-app.delete('/api/events/:id', (req, res) => {
-  const index = events.findIndex(e => e.id === req.params.id);
-  
-  if (index !== -1) {
-    const deletedEvent = events.splice(index, 1)[0];
-    res.json(deletedEvent);
-  } else {
-    res.status(404).json({ message: 'Événement non trouvé' });
+app.put('/api/events/:id', async (req, res) => {
+  try {
+    const updatedEvent = await Event.findByIdAndUpdate(
+      req.params.id, 
+      req.body, 
+      { new: true, runValidators: true }
+    );
+    
+    if (updatedEvent) {
+      res.json(updatedEvent);
+    } else {
+      res.status(404).json({ message: 'Événement non trouvé' });
+    }
+  } catch (error) {
+    console.error('Erreur lors de la mise à jour de l\'événement:', error);
+    res.status(400).json({ message: 'Données invalides', errors: error.errors });
   }
 });
 
-// Servir les fichiers statiques
-app.use(express.static(path.join(__dirname, '../frontend/public')));
-
-// Toutes les autres routes renvoient vers l'index.html
-app.get('*', (req, res) => {
-  res.sendFile(path.join(__dirname, '../frontend/public', 'index.html'));
+app.delete('/api/events/:id', async (req, res) => {
+  try {
+    const deletedEvent = await Event.findByIdAndDelete(req.params.id);
+    
+    if (deletedEvent) {
+      res.json(deletedEvent);
+    } else {
+      res.status(404).json({ message: 'Événement non trouvé' });
+    }
+  } catch (error) {
+    console.error('Erreur lors de la suppression de l\'événement:', error);
+    res.status(500).json({ message: 'Erreur serveur' });
+  }
 });
+
+// Servir les fichiers statiques en production
+if (config.NODE_ENV === 'production') {
+  app.use(express.static(path.join(__dirname, '../frontend/build')));
+  
+  app.get('*', (req, res) => {
+    res.sendFile(path.join(__dirname, '../frontend/build', 'index.html'));
+  });
+} else {
+  // En développement, servir les fichiers statiques du dossier public
+  app.use(express.static(path.join(__dirname, '../frontend/public')));
+  
+  app.get('*', (req, res) => {
+    res.sendFile(path.join(__dirname, '../frontend/public', 'index.html'));
+  });
+}
 
 // Démarrer le serveur
 app.listen(PORT, () => {
-  console.log(`Serveur démarré sur le port ${PORT} en mode ${process.env.NODE_ENV || 'development'}`);
+  console.log(`Serveur démarré sur le port ${PORT} en mode ${config.NODE_ENV}`);
 });

@@ -1,98 +1,48 @@
 const mongoose = require('mongoose');
 
-const EventSchema = new mongoose.Schema({
+const eventSchema = new mongoose.Schema({
   title: {
     type: String,
-    required: [true, 'Veuillez fournir un titre pour l\'événement'],
-    trim: true,
-    maxlength: [100, 'Le titre ne peut pas dépasser 100 caractères']
+    required: [true, 'Le titre est obligatoire']
   },
   start: {
     type: Date,
-    required: [true, 'Veuillez fournir une date de début']
+    required: [true, 'La date de début est obligatoire']
   },
   end: {
     type: Date,
-    required: [true, 'Veuillez fournir une date de fin'],
-    validate: {
-      validator: function(value) {
-        return value > this.start;
-      },
-      message: 'La date de fin doit être après la date de début'
-    }
+    required: [true, 'La date de fin est obligatoire']
   },
   client: {
     type: String,
-    required: [true, 'Veuillez fournir un client'],
-    trim: true
+    required: [true, 'Le client est obligatoire']
   },
   description: {
-    type: String,
-    trim: true
+    type: String
   },
   status: {
     type: String,
-    enum: ['pending', 'confirmed', 'in-progress', 'completed', 'cancelled'],
+    enum: {
+      values: ['pending', 'confirmed', 'in-progress', 'completed', 'cancelled'],
+      message: 'Statut non valide'
+    },
     default: 'pending'
   },
   assignedTo: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'User',
-    required: false
-  },
-  createdBy: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'User',
-    required: true
-  },
-  isShared: {
-    type: Boolean,
-    default: true
-  },
-  color: {
-    type: String,
-    default: '#5560e9'
-  },
-  notifications: {
-    type: Boolean,
-    default: true
+    type: String
   }
 }, {
   timestamps: true
 });
 
-// Index pour améliorer les performances des requêtes de calendrier
-EventSchema.index({ start: 1 });
-EventSchema.index({ end: 1 });
-EventSchema.index({ createdBy: 1 });
-EventSchema.index({ assignedTo: 1 });
+// Validation pour s'assurer que la date de fin est après la date de début
+eventSchema.pre('validate', function(next) {
+  if (this.start && this.end && this.end <= this.start) {
+    this.invalidate('end', 'La date de fin doit être après la date de début');
+  }
+  next();
+});
 
-// Méthode pour vérifier si un événement chevauche un autre
-EventSchema.methods.overlaps = function(otherEvent) {
-  return (
-    (this.start <= otherEvent.end && this.end >= otherEvent.start) || 
-    (otherEvent.start <= this.end && otherEvent.end >= this.start)
-  );
-};
+const Event = mongoose.model('Event', eventSchema);
 
-// Méthode statique pour trouver les événements pour un mois donné
-EventSchema.statics.findByMonth = function(year, month, userId) {
-  const startDate = new Date(year, month - 1, 1);
-  const endDate = new Date(year, month, 0, 23, 59, 59, 999);
-  
-  return this.find({
-    $and: [
-      { start: { $lte: endDate } },
-      { end: { $gte: startDate } },
-      {
-        $or: [
-          { createdBy: userId },
-          { assignedTo: userId },
-          { isShared: true }
-        ]
-      }
-    ]
-  }).populate('assignedTo', 'name email');
-};
-
-module.exports = mongoose.model('Event', EventSchema);
+module.exports = Event;

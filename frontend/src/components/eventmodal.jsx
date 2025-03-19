@@ -3,7 +3,6 @@ import '../styles/modal.css';
 
 const EventModal = ({ event, onClose, onSave, onDelete }) => {
   const [eventData, setEventData] = useState({
-    id: '',
     title: '',
     start: '',
     end: '',
@@ -24,7 +23,7 @@ const EventModal = ({ event, onClose, onSave, onDelete }) => {
       };
 
       setEventData({
-        id: event.id || '',
+        _id: event._id || event.id || '',
         title: event.title || '',
         start: event.start ? formatDateForInput(event.start) : '',
         end: event.end ? formatDateForInput(event.end) : '',
@@ -40,7 +39,6 @@ const EventModal = ({ event, onClose, onSave, onDelete }) => {
       oneHourLater.setHours(oneHourLater.getHours() + 1);
 
       setEventData({
-        id: '',
         title: '',
         start: now.toISOString().slice(0, 16),
         end: oneHourLater.toISOString().slice(0, 16),
@@ -103,7 +101,7 @@ const EventModal = ({ event, onClose, onSave, onDelete }) => {
 
   const handleDelete = () => {
     if (window.confirm("Êtes-vous sûr de vouloir supprimer cette intervention ?")) {
-      onDelete(eventData.id);
+      onDelete();
     }
   };
 

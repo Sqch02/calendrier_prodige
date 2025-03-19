@@ -78,7 +78,7 @@ const Calendar = ({ currentDate, events, onEventClick, onAddEvent, changeMonth, 
                       {getEventsForDay(day).length > 0 ? (
                         getEventsForDay(day).map(event => (
                           <EventItem 
-                            key={event.id} 
+                            key={event._id || event.id} 
                             event={event} 
                             onClick={(e) => {
                               e.stopPropagation();
