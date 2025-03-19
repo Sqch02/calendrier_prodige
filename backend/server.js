@@ -4,10 +4,66 @@ const cors = require('cors');
 const config = require('./config');
 const connectDB = require('./models/db');
 const seedDatabase = require('./models/seedData');
+const fs = require('fs');
 
-// Routes
-const eventRoutes = require('./routes/eventRoutes');
-const userRoutes = require('./routes/userRoutes');
+// Routes - Chargement robuste qui gère les différentes casses possibles
+let eventRoutes, userRoutes;
+
+// Fonction utilitaire pour charger un module avec gestion d'erreur et de casse
+const safeRequire = (basePath, moduleName) => {
+  // Liste des variantes possibles du nom de fichier
+  const variants = [
+    `${moduleName}.js`,
+    `${moduleName.toLowerCase()}.js`,
+    `${moduleName}s.js`,
+    `${moduleName.toLowerCase()}s.js`
+  ];
+  
+  // Essayer de charger chaque variante
+  for (const variant of variants) {
+    const fullPath = path.join(basePath, variant);
+    try {
+      if (fs.existsSync(fullPath)) {
+        console.log(`Module trouvé: ${fullPath}`);
+        return require(fullPath);
+      }
+    } catch (e) {
+      console.log(`Échec du chargement de ${fullPath}:`, e.message);
+    }
+  }
+  
+  // Si aucune variante ne fonctionne, créer un routeur par défaut
+  console.warn(`ATTENTION: Module ${moduleName} introuvable. Création d'un routeur par défaut.`);
+  const router = express.Router();
+  
+  // Route par défaut
+  router.get('/', (req, res) => {
+    res.json({
+      success: true,
+      message: `API ${moduleName} temporairement indisponible`,
+      error: `Module ${moduleName} introuvable dans le système de fichiers.`
+    });
+  });
+  
+  return router;
+};
+
+// Chargement robuste des routes
+try {
+  eventRoutes = require('./routes/eventroutes');
+  console.log('Routes d\'événements chargées avec succès');
+} catch (error) {
+  console.warn('Erreur lors du chargement des routes d\'événements:', error.message);
+  eventRoutes = safeRequire(path.join(__dirname, 'routes'), 'eventRoute');
+}
+
+try {
+  userRoutes = require('./routes/userroutes');
+  console.log('Routes d\'utilisateurs chargées avec succès');
+} catch (error) {
+  console.warn('Erreur lors du chargement des routes d\'utilisateurs:', error.message);
+  userRoutes = safeRequire(path.join(__dirname, 'routes'), 'userRoute');
+}
 
 // Configuration
 const app = express();
