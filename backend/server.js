@@ -13,6 +13,12 @@ const NODE_ENV = process.env.NODE_ENV || 'development';
 // Initialiser express
 const app = express();
 
+// Middleware pour logger toutes les requêtes
+app.use((req, res, next) => {
+  console.log(`${new Date().toISOString()} - ${req.method} ${req.url}`);
+  next();
+});
+
 // Middleware pour parser le JSON et les URL-encoded
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
@@ -193,6 +199,44 @@ const basicCalendarHTML = `
     .navigation {
       display: flex;
       gap: 10px;
+      align-items: center;
+    }
+    .year-selector {
+      display: flex;
+      gap: 5px;
+      margin-left: 15px;
+    }
+    .console-log {
+      margin-top: 20px;
+      padding: 10px;
+      background-color: #f0f0f0;
+      border-radius: 4px;
+      max-height: 150px;
+      overflow-y: auto;
+      font-family: monospace;
+      font-size: 12px;
+    }
+    .debug-panel {
+      margin-top: 30px;
+      padding: 15px;
+      background-color: #f8f9fa;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+    }
+    .status-indicator {
+      display: inline-block;
+      padding: 5px 10px;
+      border-radius: 4px;
+      font-size: 14px;
+      margin-top: 10px;
+    }
+    .status-success {
+      background-color: #d4edda;
+      color: #155724;
+    }
+    .status-error {
+      background-color: #f8d7da;
+      color: #721c24;
     }
   </style>
 </head>
@@ -204,6 +248,11 @@ const basicCalendarHTML = `
         <button id="prev-month">Mois précédent</button>
         <span id="current-month-display">Mars 2024</span>
         <button id="next-month">Mois suivant</button>
+        <div class="year-selector">
+          <button id="prev-year">◀</button>
+          <span id="current-year-display">2024</span>
+          <button id="next-year">▶</button>
+        </div>
       </div>
     </header>
     
@@ -255,6 +304,7 @@ const basicCalendarHTML = `
         </div>
         <button type="submit">Enregistrer</button>
       </form>
+      <div id="form-status"></div>
     </div>
     
     <div class="events-list">
@@ -262,6 +312,16 @@ const basicCalendarHTML = `
       <div id="events-container">
         <!-- Les événements seront affichés ici -->
       </div>
+    </div>
+
+    <div class="debug-panel">
+      <h3>Panneau de débogage</h3>
+      <div>
+        <button id="test-api">Tester l'API</button>
+        <button id="clear-logs">Effacer les logs</button>
+      </div>
+      <div id="api-status" class="status-indicator"></div>
+      <div id="console-log" class="console-log"></div>
     </div>
   </div>
 
@@ -274,10 +334,30 @@ const basicCalendarHTML = `
     // Éléments DOM
     const calendarEl = document.getElementById('calendar');
     const currentMonthDisplay = document.getElementById('current-month-display');
+    const currentYearDisplay = document.getElementById('current-year-display');
     const prevMonthBtn = document.getElementById('prev-month');
     const nextMonthBtn = document.getElementById('next-month');
+    const prevYearBtn = document.getElementById('prev-year');
+    const nextYearBtn = document.getElementById('next-year');
     const eventForm = document.getElementById('event-form');
     const eventsContainer = document.getElementById('events-container');
+    const formStatus = document.getElementById('form-status');
+    const consoleLog = document.getElementById('console-log');
+    const testApiBtn = document.getElementById('test-api');
+    const clearLogsBtn = document.getElementById('clear-logs');
+    const apiStatus = document.getElementById('api-status');
+    
+    // Fonction pour logger des informations
+    function log(message, isError = false) {
+      const logItem = document.createElement('div');
+      logItem.textContent = \`[\${new Date().toLocaleTimeString()}] \${message}\`;
+      if (isError) {
+        logItem.style.color = 'red';
+      }
+      consoleLog.appendChild(logItem);
+      consoleLog.scrollTop = consoleLog.scrollHeight;
+      console.log(message);
+    }
     
     // Noms des mois en français
     const monthNames = [
@@ -287,6 +367,8 @@ const basicCalendarHTML = `
     
     // Initialisation
     document.addEventListener('DOMContentLoaded', () => {
+      log('Application démarrée');
+      updateDisplays();
       renderCalendar();
       loadEvents();
       
@@ -297,7 +379,9 @@ const basicCalendarHTML = `
           currentMonth = 11;
           currentYear--;
         }
+        updateDisplays();
         renderCalendar();
+        loadEvents();
       });
       
       nextMonthBtn.addEventListener('click', () => {
@@ -306,23 +390,48 @@ const basicCalendarHTML = `
           currentMonth = 0;
           currentYear++;
         }
+        updateDisplays();
         renderCalendar();
+        loadEvents();
+      });
+      
+      prevYearBtn.addEventListener('click', () => {
+        currentYear--;
+        updateDisplays();
+        renderCalendar();
+        loadEvents();
+      });
+      
+      nextYearBtn.addEventListener('click', () => {
+        currentYear++;
+        updateDisplays();
+        renderCalendar();
+        loadEvents();
       });
       
       eventForm.addEventListener('submit', (e) => {
         e.preventDefault();
         saveEvent();
       });
+      
+      testApiBtn.addEventListener('click', testApi);
+      clearLogsBtn.addEventListener('click', () => {
+        consoleLog.innerHTML = '';
+      });
     });
+    
+    function updateDisplays() {
+      currentMonthDisplay.textContent = monthNames[currentMonth];
+      currentYearDisplay.textContent = currentYear;
+      log(\`Navigation vers \${monthNames[currentMonth]} \${currentYear}\`);
+    }
     
     // Fonctions
     function renderCalendar() {
-      // Mettre à jour l'affichage du mois courant
-      currentMonthDisplay.textContent = \`\${monthNames[currentMonth]} \${currentYear}\`;
-      
       // Effacer les jours existants sauf les en-têtes
-      const days = calendarEl.querySelectorAll('.calendar-day');
-      days.forEach(day => day.remove());
+      const headers = Array.from(calendarEl.querySelectorAll('.calendar-header'));
+      calendarEl.innerHTML = '';
+      headers.forEach(header => calendarEl.appendChild(header));
       
       // Déterminer le premier jour du mois
       const firstDay = new Date(currentYear, currentMonth, 1);
@@ -332,6 +441,8 @@ const basicCalendarHTML = `
       // Déterminer le nombre de jours dans le mois
       const lastDay = new Date(currentYear, currentMonth + 1, 0);
       const daysInMonth = lastDay.getDate();
+      
+      log(\`Rendu du calendrier: \${monthNames[currentMonth]} \${currentYear}, \${daysInMonth} jours, débutant un jour \${dayOfWeek}\`);
       
       // Ajouter les jours vides avant le premier jour du mois
       for (let i = 1; i < dayOfWeek; i++) {
@@ -348,10 +459,15 @@ const basicCalendarHTML = `
         
         // Ajouter les événements pour ce jour
         const dayEvents = events.filter(event => {
-          const eventDate = new Date(event.start);
-          return eventDate.getDate() === i && 
-                 eventDate.getMonth() === currentMonth && 
-                 eventDate.getFullYear() === currentYear;
+          try {
+            const eventDate = new Date(event.start);
+            return eventDate.getDate() === i && 
+                   eventDate.getMonth() === currentMonth && 
+                   eventDate.getFullYear() === currentYear;
+          } catch (e) {
+            log(\`Erreur lors du filtrage de l'événement: \${e.message}\`, true);
+            return false;
+          }
         });
         
         dayEvents.forEach(event => {
@@ -365,6 +481,7 @@ const basicCalendarHTML = `
           eventEl.style.textOverflow = 'ellipsis';
           eventEl.style.whiteSpace = 'nowrap';
           eventEl.textContent = event.title;
+          eventEl.addEventListener('click', () => editEvent(event._id));
           dayEl.appendChild(eventEl);
         });
         
@@ -373,19 +490,32 @@ const basicCalendarHTML = `
     }
     
     function loadEvents() {
+      // Construire l'URL avec les paramètres de mois/année
+      const url = \`/api/events?month=\${currentMonth + 1}&year=\${currentYear}\`;
+      log(\`Chargement des événements: \${url}\`);
+      
       // Charger les événements depuis l'API
-      fetch('/api/events')
-        .then(response => response.json())
+      fetch(url)
+        .then(response => {
+          log(\`Réponse status: \${response.status}\`);
+          return response.json();
+        })
         .then(data => {
+          log(\`Événements reçus: \${JSON.stringify(data).substring(0, 200)}...\`);
           if (data.success !== false) {
             events = data.data || [];
+            log(\`\${events.length} événements chargés\`);
             renderCalendar();
             renderEventsList();
+          } else {
+            log(\`Erreur API: \${data.message}\`, true);
           }
         })
         .catch(error => {
-          console.error('Erreur lors du chargement des événements:', error);
+          log(\`Erreur lors du chargement des événements: \${error.message}\`, true);
+          
           // Créer des événements de démonstration si l'API échoue
+          log('Utilisation des événements de démonstration');
           events = [
             {
               _id: '1',
@@ -427,13 +557,18 @@ const basicCalendarHTML = `
         const endDate = new Date(event.end);
         
         const formatDate = (date) => {
-          return date.toLocaleString('fr-FR', {
-            day: '2-digit',
-            month: '2-digit',
-            year: 'numeric',
-            hour: '2-digit',
-            minute: '2-digit'
-          });
+          try {
+            return date.toLocaleString('fr-FR', {
+              day: '2-digit',
+              month: '2-digit',
+              year: 'numeric',
+              hour: '2-digit',
+              minute: '2-digit'
+            });
+          } catch (e) {
+            log(\`Erreur de formatage de date: \${e.message}\`, true);
+            return 'Date invalide';
+          }
         };
         
         const getStatusLabel = (status) => {
@@ -470,42 +605,76 @@ const basicCalendarHTML = `
     }
     
     function saveEvent() {
-      const event = {
-        title: document.getElementById('title').value,
-        start: document.getElementById('start').value,
-        end: document.getElementById('end').value,
-        client: document.getElementById('client').value,
-        description: document.getElementById('description').value,
-        status: document.getElementById('status').value
-      };
+      // Récupérer les valeurs du formulaire
+      const title = document.getElementById('title').value;
+      const start = document.getElementById('start').value;
+      const end = document.getElementById('end').value;
+      const client = document.getElementById('client').value;
+      const description = document.getElementById('description').value;
+      const status = document.getElementById('status').value;
       
-      fetch('/api/events', {
-        method: 'POST',
+      // Valider les données
+      if (!title || !start || !end || !client) {
+        formStatus.innerHTML = '<div class="status-error">Veuillez remplir tous les champs obligatoires</div>';
+        log('Validation du formulaire échouée: champs obligatoires manquants', true);
+        return;
+      }
+      
+      // Créer l'objet événement
+      const event = { title, start, end, client, description, status };
+      log(\`Sauvegarde de l'événement: \${JSON.stringify(event)}\`);
+      
+      // Vérifier si nous sommes en mode édition ou création
+      const editId = eventForm.getAttribute('data-edit-id');
+      const method = editId ? 'PUT' : 'POST';
+      const url = editId ? \`/api/events/\${editId}\` : '/api/events';
+      
+      // Envoyer la requête au serveur
+      fetch(url, {
+        method: method,
         headers: {
           'Content-Type': 'application/json'
         },
         body: JSON.stringify(event)
       })
-      .then(response => response.json())
+      .then(response => {
+        log(\`Réponse status: \${response.status}\`);
+        return response.json();
+      })
       .then(data => {
+        log(\`Réponse API: \${JSON.stringify(data).substring(0, 200)}...\`);
         if (data.success !== false) {
+          // Afficher un message de succès
+          formStatus.innerHTML = '<div class="status-success">Événement ' + (editId ? 'mis à jour' : 'créé') + ' avec succès</div>';
+          
           // Réinitialiser le formulaire
           eventForm.reset();
+          eventForm.removeAttribute('data-edit-id');
+          
+          // Si nous étions en mode édition, restaurer le texte du bouton
+          const submitButton = eventForm.querySelector('button[type="submit"]');
+          submitButton.textContent = 'Enregistrer';
+          
           // Recharger les événements
           loadEvents();
         } else {
-          alert('Erreur lors de l\'enregistrement de l\'événement: ' + data.message);
+          formStatus.innerHTML = \`<div class="status-error">Erreur: \${data.message}</div>\`;
+          log(\`Erreur API: \${data.message}\`, true);
         }
       })
       .catch(error => {
-        console.error('Erreur lors de l\'enregistrement de l\'événement:', error);
-        alert('Erreur lors de l\'enregistrement de l\'événement. Consultez la console pour plus de détails.');
+        formStatus.innerHTML = '<div class="status-error">Erreur: Impossible de communiquer avec le serveur</div>';
+        log(\`Erreur lors de la sauvegarde: \${error.message}\`, true);
       });
     }
     
     function editEvent(id) {
+      log(\`Édition de l'événement: \${id}\`);
       const event = events.find(e => e._id === id);
-      if (!event) return;
+      if (!event) {
+        log(\`Événement non trouvé: \${id}\`, true);
+        return;
+      }
       
       // Pré-remplir le formulaire avec les données de l'événement
       document.getElementById('title').value = event.title;
@@ -515,8 +684,14 @@ const basicCalendarHTML = `
       
       // Formater les dates pour l'input datetime-local
       const formatDateForInput = (dateString) => {
-        const date = new Date(dateString);
-        return date.toISOString().slice(0, 16);
+        try {
+          const date = new Date(dateString);
+          const isoString = date.toISOString();
+          return isoString.slice(0, 16); // Format YYYY-MM-DDTHH:MM
+        } catch (e) {
+          log(\`Erreur de formatage de date: \${e.message}\`, true);
+          return '';
+        }
       };
       
       document.getElementById('start').value = formatDateForInput(event.start);
@@ -527,70 +702,70 @@ const basicCalendarHTML = `
       submitButton.textContent = 'Mettre à jour';
       eventForm.setAttribute('data-edit-id', id);
       
-      // Modifier le gestionnaire de soumission
-      eventForm.onsubmit = (e) => {
-        e.preventDefault();
-        
-        const updatedEvent = {
-          title: document.getElementById('title').value,
-          start: document.getElementById('start').value,
-          end: document.getElementById('end').value,
-          client: document.getElementById('client').value,
-          description: document.getElementById('description').value,
-          status: document.getElementById('status').value
-        };
-        
-        fetch(\`/api/events/\${id}\`, {
-          method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify(updatedEvent)
-        })
-        .then(response => response.json())
-        .then(data => {
-          if (data.success !== false) {
-            // Réinitialiser le formulaire
-            eventForm.reset();
-            // Restaurer le gestionnaire de soumission original
-            eventForm.onsubmit = (e) => {
-              e.preventDefault();
-              saveEvent();
-            };
-            // Restaurer le texte du bouton
-            submitButton.textContent = 'Enregistrer';
-            // Recharger les événements
-            loadEvents();
-          } else {
-            alert('Erreur lors de la mise à jour de l\'événement: ' + data.message);
-          }
-        })
-        .catch(error => {
-          console.error('Erreur lors de la mise à jour de l\'événement:', error);
-          alert('Erreur lors de la mise à jour de l\'événement. Consultez la console pour plus de détails.');
-        });
-      };
+      // Faire défiler vers le formulaire
+      eventForm.scrollIntoView({behavior: 'smooth'});
     }
     
     function deleteEvent(id) {
       if (!confirm('Êtes-vous sûr de vouloir supprimer cet événement ?')) return;
       
+      log(\`Suppression de l'événement: \${id}\`);
+      
       fetch(\`/api/events/\${id}\`, {
         method: 'DELETE'
       })
-      .then(response => response.json())
+      .then(response => {
+        log(\`Réponse status: \${response.status}\`);
+        return response.json();
+      })
       .then(data => {
+        log(\`Réponse API: \${JSON.stringify(data).substring(0, 200)}...\`);
         if (data.success !== false) {
+          log('Événement supprimé avec succès');
           // Recharger les événements
           loadEvents();
         } else {
-          alert('Erreur lors de la suppression de l\'événement: ' + data.message);
+          log(\`Erreur API: \${data.message}\`, true);
+          alert(\`Erreur lors de la suppression de l'événement: \${data.message}\`);
         }
       })
       .catch(error => {
-        console.error('Erreur lors de la suppression de l\'événement:', error);
-        alert('Erreur lors de la suppression de l\'événement. Consultez la console pour plus de détails.');
+        log(\`Erreur lors de la suppression: \${error.message}\`, true);
+        alert(\`Erreur lors de la suppression de l'événement: \${error.message}\`);
       });
+    }
+    
+    function testApi() {
+      log('Test de l\'API en cours...');
+      apiStatus.textContent = 'Test en cours...';
+      apiStatus.className = 'status-indicator';
+      
+      fetch('/api/status')
+        .then(response => {
+          log(\`Réponse status: \${response.status}\`);
+          return response.json();
+        })
+        .then(data => {
+          log(\`API status: \${JSON.stringify(data)}\`);
+          apiStatus.textContent = \`API disponible: \${data.message}\`;
+          apiStatus.className = 'status-indicator status-success';
+          
+          // Tester également l'API d'événements
+          return fetch('/api/events');
+        })
+        .then(response => {
+          log(\`API événements status: \${response.status}\`);
+          return response.json();
+        })
+        .then(data => {
+          log(\`API événements: mode=\${data.mode}, count=\${data.count}\`);
+          apiStatus.textContent += \` | API événements: \${data.count} événements disponibles (mode \${data.mode})\`;
+        })
+        .catch(error => {
+          log(\`Erreur de test API: \${error.message}\`, true);
+          apiStatus.textContent = \`Erreur API: \${error.message}\`;
+          apiStatus.className = 'status-indicator status-error';
+        });
     }
   </script>
 </body>
