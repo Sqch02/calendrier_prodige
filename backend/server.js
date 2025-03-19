@@ -22,7 +22,7 @@ app.use(express.json());
 
 // Endpoint de healthcheck - important pour Railway
 app.get('/', (req, res) => {
-  res.status(200).send('Service en ligne');
+  res.status(200).json({ message: 'Service en ligne', version: '1.0.0' });
 });
 
 // Connexion à MongoDB et initialisation
@@ -51,7 +51,9 @@ if (process.env.NODE_ENV === 'production' || config.NODE_ENV === 'production') {
   
   // Pour toutes les routes non-API, servir index.html
   app.get('*', (req, res) => {
-    res.sendFile(path.join(staticPath, 'index.html'));
+    if (!req.path.startsWith('/api/')) {
+      res.sendFile(path.join(staticPath, 'index.html'));
+    }
   });
 } else {
   // En développement
@@ -63,4 +65,30 @@ if (process.env.NODE_ENV === 'production' || config.NODE_ENV === 'production') {
 // Démarrer le serveur
 app.listen(PORT, () => {
   console.log(`Serveur démarré sur le port ${PORT} en mode ${process.env.NODE_ENV || config.NODE_ENV}`);
+  
+  // Tentative de connexion à MongoDB
+  console.log('Tentative de connexion à MongoDB...');
+  connectDB()
+    .then(() => {
+      console.log('MongoDB connecté');
+      return seedDatabase();
+    })
+    .then(() => {
+      console.log('Base de données initialisée avec succès');
+    })
+    .catch((err) => {
+      console.error('ERREUR de connexion à MongoDB:', err.message);
+      console.log('Le serveur continue à fonctionner sans MongoDB (mode dégradé)');
+    });
+});
+
+// Gestion des erreurs non capturées pour éviter l'arrêt du serveur
+process.on('uncaughtException', (err) => {
+  console.error('Erreur non capturée:', err);
+  console.log('Le serveur continue à fonctionner après une erreur non capturée');
+});
+
+process.on('unhandledRejection', (err) => {
+  console.error('Promesse rejetée non gérée:', err);
+  console.log('Le serveur continue à fonctionner après un rejet de promesse non géré');
 });

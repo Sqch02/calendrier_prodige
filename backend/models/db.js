@@ -1,24 +1,28 @@
 const mongoose = require('mongoose');
 const config = require('../config');
 
+// Fonction de connexion à MongoDB
 const connectDB = async () => {
   try {
-    const mongoUri = process.env.MONGODB_URI || config.MONGODB_URI;
-    console.log(`Tentative de connexion à MongoDB: ${mongoUri.split('@').pop()}`);
+    // Utiliser l'URI depuis les variables d'environnement ou la configuration par défaut
+    const uri = process.env.MONGODB_URI || config.MONGODB_URI;
     
-    const conn = await mongoose.connect(mongoUri, {
+    // Masquer les informations sensibles pour l'affichage
+    const displayUri = uri.replace(/mongodb:\/\/([^:]+):([^@]+)@/, 'mongodb://*****:*****@');
+    console.log(`Tentative de connexion à MongoDB: ${displayUri}`);
+    
+    await mongoose.connect(uri, {
       useNewUrlParser: true,
       useUnifiedTopology: true,
     });
-
-    console.log(`MongoDB connecté: ${conn.connection.host}`);
-    return conn;
+    
+    console.log('Connexion à MongoDB établie avec succès');
+    return true;
   } catch (error) {
-    console.error(`Erreur de connexion à MongoDB: ${error.message}`);
-    // Ne pas quitter le processus en production pour permettre les tentatives de reconnexion
-    // ou le fonctionnement en mode dégradé
-    console.log('Le serveur continuera à fonctionner sans connexion à la base de données.');
-    return null;
+    console.error('Erreur de connexion à MongoDB:', error.message);
+    // Ne pas terminer le processus, permettre au serveur de démarrer en mode dégradé
+    console.log('Le serveur fonctionnera en mode dégradé sans accès à la base de données');
+    return false;
   }
 };
 

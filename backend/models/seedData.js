@@ -1,56 +1,62 @@
 const Event = require('./Event');
-const connectDB = require('./db');
+const mongoose = require('mongoose');
 
+// Données d'exemple pour initialiser la base de données
 const seedEvents = [
   {
-    title: 'Installation système',
-    start: new Date('2025-03-05T09:00:00'),
-    end: new Date('2025-03-05T12:00:00'),
-    client: 'Dupont SA',
-    description: 'Installation du nouveau système de gestion',
-    status: 'confirmed',
-    assignedTo: 'Jean Martin'
+    title: 'Réunion client Alpha',
+    start: new Date('2023-09-15T09:00:00'),
+    end: new Date('2023-09-15T11:00:00'),
+    client: 'Alpha SARL',
+    description: 'Présentation des nouvelles fonctionnalités',
+    status: 'scheduled',
+    assignedTo: 'Jean Dupont'
   },
   {
     title: 'Maintenance serveur',
-    start: new Date('2025-03-12T14:00:00'),
-    end: new Date('2025-03-12T16:30:00'),
-    client: 'Michu SARL',
-    description: 'Maintenance mensuelle des serveurs',
+    start: new Date('2023-09-17T14:00:00'),
+    end: new Date('2023-09-17T17:00:00'),
+    client: 'Interne',
+    description: 'Mise à jour des serveurs web',
     status: 'pending',
-    assignedTo: 'Sophie Durand'
+    assignedTo: 'Marie Durand'
   },
   {
-    title: 'Formation utilisateurs',
-    start: new Date('2025-03-20T10:00:00'),
-    end: new Date('2025-03-20T17:00:00'),
-    client: 'Entreprise ABC',
-    description: 'Formation sur le nouvel outil de gestion',
-    status: 'in-progress',
-    assignedTo: 'Pierre Lefebvre'
+    title: 'Formation React',
+    start: new Date('2023-09-20T10:00:00'),
+    end: new Date('2023-09-20T16:00:00'),
+    client: 'Équipe Dev',
+    description: 'Formation sur les hooks et context API',
+    status: 'confirmed',
+    assignedTo: 'Pierre Martin'
   }
 ];
 
+// Fonction pour initialiser la base de données avec les données d'exemple
 const seedDatabase = async () => {
+  // Vérifier si MongoDB est connecté
+  if (mongoose.connection.readyState !== 1) {
+    console.log('Impossible d\'initialiser la base de données - Pas de connexion MongoDB');
+    return false;
+  }
+
   try {
-    // On suppose que MongoDB est déjà connecté
-    // Vérifier si la collection est vide
-    const count = await Event.countDocuments().catch(err => {
-      console.error('Erreur lors de la vérification des documents:', err);
-      return 0;
-    });
+    // Vérifier si la collection des événements est vide
+    const count = await Event.countDocuments();
     
     if (count === 0) {
-      console.log('Initialisation de la base de données avec des exemples...');
+      console.log('Initialisation de la base de données avec les données d\'exemple...');
       await Event.insertMany(seedEvents);
-      console.log('Base de données initialisée avec des exemples');
+      console.log(`${seedEvents.length} événements ajoutés à la base de données`);
+      return true;
     } else {
-      console.log('La base de données contient déjà des données, pas d\'initialisation nécessaire');
+      console.log(`Base de données déjà initialisée avec ${count} événements`);
+      return true;
     }
-    
   } catch (error) {
-    console.error('Erreur lors de l\'initialisation de la base de données:', error);
-    // Ne pas propager l'erreur, permettre à l'application de continuer
+    console.error('Erreur lors de l\'initialisation de la base de données:', error.message);
+    console.log('L\'application continuera à fonctionner sans les données d\'exemple');
+    return false;
   }
 };
 
