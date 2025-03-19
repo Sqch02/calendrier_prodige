@@ -62,19 +62,46 @@ RUN mkdir -p backend/routes && \
     if [ -f backend/routes/userroutes.js ]; then cp backend/routes/userroutes.js backend/routes/userRoutes.js; fi && \
     ls -la backend/routes/
 
+# Créer le répertoire de données avec permissions complètes
+RUN mkdir -p /app/backend/data && \
+    chmod -R 777 /app/backend/data && \
+    echo "[]" > /app/backend/data/events.json && \
+    chmod 666 /app/backend/data/events.json && \
+    ls -la /app/backend/data/
+
+# Créer un script de démarrage
+RUN echo '#!/bin/sh' > /app/start.sh && \
+    echo 'echo "=== DÉMARRAGE DU CALENDRIER PRODIGE ===" ' >> /app/start.sh && \
+    echo 'echo "Vérification du répertoire de données..." ' >> /app/start.sh && \
+    echo 'mkdir -p /app/backend/data' >> /app/start.sh && \
+    echo 'chmod -R 777 /app/backend/data' >> /app/start.sh && \
+    echo 'if [ ! -f /app/backend/data/events.json ]; then' >> /app/start.sh && \
+    echo '  echo "[]" > /app/backend/data/events.json' >> /app/start.sh && \
+    echo '  echo "Fichier events.json créé"' >> /app/start.sh && \
+    echo 'fi' >> /app/start.sh && \
+    echo 'chmod 666 /app/backend/data/events.json' >> /app/start.sh && \
+    echo 'echo "Démarrage du serveur avec SKIP_DB=true..."' >> /app/start.sh && \
+    echo 'export SKIP_DB=true' >> /app/start.sh && \
+    echo 'export NODE_ENV=production' >> /app/start.sh && \
+    echo 'export PORT=8080' >> /app/start.sh && \
+    echo 'node /app/backend/server.js' >> /app/start.sh && \
+    chmod +x /app/start.sh
+
 # Vérifier la présence des fichiers critiques
 RUN echo "Vérification de la structure des fichiers..." && \
     ls -la backend/models/ && \
     ls -la backend/routes/ && \
     ls -la frontend/build/ && \
-    ls -la /app/
+    ls -la /app/ && \
+    cat /app/start.sh
 
 # Définir les variables d'environnement
 ENV NODE_ENV=production \
-    PORT=8080
+    PORT=8080 \
+    SKIP_DB=true
 
 # Exposer le port
 EXPOSE 8080
 
-# Utiliser directement node pour démarrer l'application
-CMD ["node", "/app/backend/server.js"]
+# Utiliser le script de démarrage
+CMD ["/app/start.sh"]
