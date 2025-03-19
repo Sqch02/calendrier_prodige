@@ -1,4 +1,3 @@
-const Event = require('./Event');
 const mongoose = require('mongoose');
 
 // Données d'exemple pour initialiser la base de données
@@ -39,6 +38,28 @@ const seedDatabase = async () => {
     if (mongoose.connection.readyState !== 1) {
       console.log('Impossible d\'initialiser la base de données - Pas de connexion MongoDB active');
       return false;
+    }
+    
+    // Importer le modèle Event de manière sécurisée
+    let Event;
+    try {
+      Event = require('./Event');
+    } catch (error) {
+      console.error('Erreur lors du chargement du modèle Event:', error.message);
+      console.log('Création d\'un modèle Event temporaire...');
+      
+      // Créer un schéma temporaire si le modèle n'existe pas
+      const eventSchema = new mongoose.Schema({
+        title: String,
+        start: Date,
+        end: Date,
+        client: String,
+        description: String,
+        status: String,
+        assignedTo: String
+      }, { timestamps: true });
+      
+      Event = mongoose.model('Event', eventSchema);
     }
 
     console.log('Vérification de la base de données...');
