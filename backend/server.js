@@ -64,8 +64,8 @@ const safeRequire = (modulePath, alternatives = []) => {
   }
 };
 
-// Healthcheck endpoint
-app.get('/', (req, res) => {
+// Healthcheck endpoint - déplacé à /api/status pour libérer la route racine pour le frontend
+app.get('/api/status', (req, res) => {
   console.log('Healthcheck appelé - réponse 200');
   res.status(200).send({ message: 'Service en ligne', version: '1.0.0', env: NODE_ENV, timestamp: new Date().toISOString() });
 });
@@ -117,9 +117,17 @@ if (NODE_ENV === 'production') {
   
   if (staticPath) {
     console.log(`Servir les fichiers statiques depuis: ${staticPath}`);
+    
+    // Servir les fichiers statiques
     app.use(express.static(staticPath));
     
-    // Pour toutes les autres routes, servir index.html
+    // Route racine spécifique pour servir index.html directement
+    app.get('/', (req, res) => {
+      console.log('Route racine accédée - servant index.html');
+      res.sendFile(path.join(staticPath, 'index.html'));
+    });
+    
+    // Pour toutes les autres routes non-API, servir index.html (pour le routage côté client)
     app.get('*', (req, res) => {
       if (!req.path.startsWith('/api/')) {
         res.sendFile(path.join(staticPath, 'index.html'));
