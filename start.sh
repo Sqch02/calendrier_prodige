@@ -6,8 +6,8 @@ echo "        DÉMARRAGE DE CALENDRIER PRODIGE"
 echo "*******************************************************"
 
 # Vérification de l'environnement
-echo "Environnement: $NODE_ENV"
-echo "Port: $PORT"
+echo "Démarrage dans l'environnement: ${NODE_ENV:-développement}"
+echo "Port: ${PORT:-5000}"
 
 # Vérification de la connexion MongoDB
 if [ -z "$MONGODB_URI" ]; then
@@ -22,8 +22,24 @@ if [ -z "$JWT_SECRET" ]; then
   echo "ATTENTION: JWT_SECRET non défini! Utilisation d'une valeur par défaut non sécurisée pour le développement."
 fi
 
-echo "Démarrage du serveur Node.js..."
+echo "Logs du serveur :"
 echo "*******************************************************"
 
-# Démarrage du serveur
-node backend/server.js 
+# Vérifier que le dossier backend existe
+if [ ! -d "/app/backend" ]; then
+  echo "ERREUR CRITIQUE: Dossier backend introuvable!"
+  echo "Contenu du dossier /app:"
+  ls -la /app
+  exit 1
+fi
+
+# Vérifier que le script server.js existe
+if [ ! -f "/app/backend/server.js" ]; then
+  echo "ERREUR CRITIQUE: Fichier server.js introuvable!"
+  echo "Contenu du dossier backend:"
+  ls -la /app/backend
+  exit 1
+fi
+
+# Démarrage du serveur avec un timeout long pour assurer que le healthcheck fonctionne
+NODE_OPTIONS=--max-old-space-size=512 node backend/server.js 

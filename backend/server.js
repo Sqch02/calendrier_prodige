@@ -20,22 +20,22 @@ app.use(cors({
 }));
 app.use(express.json());
 
-// Endpoint de healthcheck - important pour Railway
-app.get('/', (req, res) => {
-  res.status(200).json({ message: 'Service en ligne', version: '1.0.0' });
-});
+// Logs pour le débogage
+console.log('=== DÉMARRAGE DE L\'APPLICATION ===');
+console.log(`Environnement: ${process.env.NODE_ENV || config.NODE_ENV}`);
+console.log(`Port: ${PORT}`);
+console.log(`CORS Origin: ${config.CORS_ORIGIN}`);
+console.log('====================================');
 
-// Connexion à MongoDB et initialisation
-connectDB().then((connection) => {
-  // Initialiser la base de données avec des exemples si elle est vide et si la connexion a réussi
-  if (connection) {
-    seedDatabase().catch(err => {
-      console.error('Erreur lors de l\'initialisation de la base de données:', err);
-    });
-  }
-}).catch(err => {
-  console.error('Erreur non gérée lors de la connexion à MongoDB:', err);
-  // Ne pas quitter le processus, continuer à servir les fichiers statiques
+// Endpoint de healthcheck - DOIT toujours répondre
+app.get('/', (req, res) => {
+  console.log('Healthcheck appelé - réponse 200');
+  res.status(200).json({ 
+    message: 'Service en ligne', 
+    version: '1.0.0',
+    env: process.env.NODE_ENV || config.NODE_ENV,
+    timestamp: new Date().toISOString()
+  });
 });
 
 // Routes API
@@ -62,33 +62,43 @@ if (process.env.NODE_ENV === 'production' || config.NODE_ENV === 'production') {
   });
 }
 
-// Démarrer le serveur
-app.listen(PORT, () => {
+// IMPORTANT: Démarrer le serveur AVANT de tenter la connexion MongoDB
+// Cela garantit que le healthcheck fonctionnera même si MongoDB est inaccessible
+const server = app.listen(PORT, '0.0.0.0', () => {
   console.log(`Serveur démarré sur le port ${PORT} en mode ${process.env.NODE_ENV || config.NODE_ENV}`);
   
-  // Tentative de connexion à MongoDB
+  // Tentative de connexion à MongoDB APRÈS le démarrage du serveur
   console.log('Tentative de connexion à MongoDB...');
   connectDB()
-    .then(() => {
-      console.log('MongoDB connecté');
-      return seedDatabase();
+    .then((connected) => {
+      if (connected) {
+        console.log('MongoDB connecté avec succès');
+        return seedDatabase();
+      } else {
+        console.log('Échec de la connexion à MongoDB, serveur en mode dégradé');
+        return false;
+      }
     })
-    .then(() => {
-      console.log('Base de données initialisée avec succès');
+    .then((seeded) => {
+      if (seeded) {
+        console.log('Base de données initialisée avec succès');
+      } else {
+        console.log('Pas d\'initialisation de la base de données');
+      }
     })
     .catch((err) => {
-      console.error('ERREUR de connexion à MongoDB:', err.message);
-      console.log('Le serveur continue à fonctionner sans MongoDB (mode dégradé)');
+      console.error('ERREUR lors de l\'initialisation:', err.message);
+      console.log('Le serveur continue en mode dégradé');
     });
 });
 
 // Gestion des erreurs non capturées pour éviter l'arrêt du serveur
 process.on('uncaughtException', (err) => {
-  console.error('Erreur non capturée:', err);
-  console.log('Le serveur continue à fonctionner après une erreur non capturée');
+  console.error('ERREUR NON CAPTURÉE:', err);
+  console.log('Le serveur continue après une erreur non capturée');
 });
 
 process.on('unhandledRejection', (err) => {
-  console.error('Promesse rejetée non gérée:', err);
-  console.log('Le serveur continue à fonctionner après un rejet de promesse non géré');
+  console.error('PROMESSE REJETÉE NON GÉRÉE:', err);
+  console.log('Le serveur continue après un rejet de promesse non géré');
 });

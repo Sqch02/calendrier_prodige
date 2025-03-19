@@ -34,18 +34,42 @@ const seedEvents = [
 
 // Fonction pour initialiser la base de données avec les données d'exemple
 const seedDatabase = async () => {
-  // Vérifier si MongoDB est connecté
-  if (mongoose.connection.readyState !== 1) {
-    console.log('Impossible d\'initialiser la base de données - Pas de connexion MongoDB');
-    return false;
-  }
-
   try {
-    // Vérifier si la collection des événements est vide
-    const count = await Event.countDocuments();
+    // Vérifier si MongoDB est connecté
+    if (mongoose.connection.readyState !== 1) {
+      console.log('Impossible d\'initialiser la base de données - Pas de connexion MongoDB active');
+      return false;
+    }
+
+    console.log('Vérification de la base de données...');
+    
+    // Vérifier que le modèle Event est disponible
+    if (!Event || !Event.countDocuments) {
+      console.error('Erreur: Modèle Event non disponible ou invalide');
+      return false;
+    }
+
+    // Vérifier si la collection des événements est vide avec un timeout
+    const countPromise = new Promise((resolve, reject) => {
+      const timeout = setTimeout(() => {
+        reject(new Error('Timeout lors du comptage des documents'));
+      }, 5000);
+      
+      Event.countDocuments()
+        .then(count => {
+          clearTimeout(timeout);
+          resolve(count);
+        })
+        .catch(err => {
+          clearTimeout(timeout);
+          reject(err);
+        });
+    });
+    
+    const count = await countPromise;
     
     if (count === 0) {
-      console.log('Initialisation de la base de données avec les données d\'exemple...');
+      console.log('Base de données vide. Initialisation avec les données d\'exemple...');
       await Event.insertMany(seedEvents);
       console.log(`${seedEvents.length} événements ajoutés à la base de données`);
       return true;
